@@ -1,50 +1,22 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useAuth } from '../src/context/AuthContext';
 
-const Signup = () => {
-  const [formData, setFormData] = useState({
-    fullName: '',
-    userName: '',
-    password: '',
-    confirmPassword: '',
-    gender: 'male',
-  });
+const Signup = ({ onSwitchToLogin }) => {
+  const {
+    formData,
+    handleChange,
+    handleGenderSelect,
+    handleSubmit,
+    genderOptions,
+    loading,
+    error,
+    success,
+  } = useAuth();
+
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isGenderOpen, setIsGenderOpen] = useState(false);
   const genderDropdownRef = useRef(null);
-
-  const genderOptions = [
-    {
-      value: 'male',
-      label: 'Male',
-      icon: (
-        <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-          <circle cx="10" cy="14" r="5" />
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 5l-5.4 5.4M19 5h-5M19 5v5" />
-        </svg>
-      ),
-    },
-    {
-      value: 'female',
-      label: 'Female',
-      icon: (
-        <svg className="w-4 h-4 text-pink-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-          <circle cx="12" cy="9" r="5" />
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 14v7M9 18h6" />
-        </svg>
-      ),
-    },
-    {
-      value: 'other',
-      label: 'Other / Non-binary',
-      icon: (
-        <svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-          <circle cx="12" cy="12" r="7" />
-        </svg>
-      ),
-    },
-  ];
 
   // Close dropdown when clicked outside
   useEffect(() => {
@@ -57,21 +29,12 @@ const Signup = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handleGenderSelect = (val) => {
-    setFormData({ ...formData, gender: val });
+  const onGenderSelect = (val) => {
+    handleGenderSelect(val);
     setIsGenderOpen(false);
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    console.log("Signup submitted:", formData);
-  };
-
-  const selectedGender = genderOptions.find((g) => g.value === formData.gender) || genderOptions[0];
+  const selectedGender = genderOptions?.find((g) => g.value === formData.gender) || genderOptions?.[0] || { label: 'Male' };
   const passwordsMatch = formData.confirmPassword && formData.password === formData.confirmPassword;
   const passwordsMismatch = formData.confirmPassword && formData.password !== formData.confirmPassword;
 
@@ -124,6 +87,25 @@ const Signup = () => {
               End-to-end encrypted
             </div>
           </div>
+
+          {/* Feedback Alerts */}
+          {error && (
+            <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300 flex items-center gap-2">
+              <svg className="w-4 h-4 text-rose-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <span>{error}</span>
+            </div>
+          )}
+
+          {success && (
+            <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-300 flex items-center gap-2">
+              <svg className="w-4 h-4 text-emerald-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>{success}</span>
+            </div>
+          )}
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-3.5">
@@ -324,7 +306,7 @@ const Signup = () => {
                         <button
                           key={option.value}
                           type="button"
-                          onClick={() => handleGenderSelect(option.value)}
+                          onClick={() => onGenderSelect(option.value)}
                           className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition cursor-pointer ${
                             isSelected
                               ? 'bg-indigo-600/30 text-white border border-indigo-500/50 shadow-sm shadow-indigo-500/20'
@@ -355,13 +337,28 @@ const Signup = () => {
             <div className="pt-2">
               <button
                 type="submit"
-                className="w-full relative group overflow-hidden py-3 px-4 rounded-xl font-bold text-sm text-white bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-600 hover:from-indigo-400 hover:via-purple-400 hover:to-indigo-500 shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 active:scale-[0.99] transition-all duration-200 cursor-pointer"
+                disabled={loading}
+                className={`w-full relative group overflow-hidden py-3 px-4 rounded-xl font-bold text-sm text-white bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-600 hover:from-indigo-400 hover:via-purple-400 hover:to-indigo-500 shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 active:scale-[0.99] transition-all duration-200 cursor-pointer ${
+                  loading ? 'opacity-70 cursor-not-allowed' : ''
+                }`}
               >
                 <span className="relative z-10 flex items-center justify-center gap-2">
-                  Create Account
-                  <svg className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                  </svg>
+                  {loading ? (
+                    <>
+                      <svg className="w-4 h-4 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                      </svg>
+                      Creating Account...
+                    </>
+                  ) : (
+                    <>
+                      Create Account
+                      <svg className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                      </svg>
+                    </>
+                  )}
                 </span>
                 {/* Subtle highlight sheen */}
                 <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
@@ -372,9 +369,22 @@ const Signup = () => {
           {/* Footer Link */}
           <div className="mt-5 text-center text-xs text-slate-400">
             Already have an account?{' '}
-            <a href="/login" className="font-semibold text-indigo-400 hover:text-indigo-300 transition-colors">
-              Log in
-            </a>
+            {onSwitchToLogin ? (
+              <button
+                type="button"
+                onClick={onSwitchToLogin}
+                className="font-semibold text-indigo-400 hover:text-indigo-300 transition-colors cursor-pointer"
+              >
+                Log in
+              </button>
+            ) : (
+              <a
+                href="/login"
+                className="font-semibold text-indigo-400 hover:text-indigo-300 transition-colors"
+              >
+                Log in
+              </a>
+            )}
           </div>
         </div>
       </div>
