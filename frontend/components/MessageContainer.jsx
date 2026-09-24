@@ -7,8 +7,6 @@ import Message from './Message';
 import {
   IoSend,
   IoArrowBack,
-  IoCallOutline,
-  IoVideocamOutline,
   IoEllipsisVertical,
   IoLockClosedOutline,
   IoHappyOutline,
@@ -16,6 +14,12 @@ import {
   IoChatbubbleEllipsesOutline,
   IoSparklesOutline,
   IoShieldCheckmarkOutline,
+  IoSearchOutline,
+  IoChevronUp,
+  IoChevronDown,
+  IoCloseOutline,
+  IoPencilOutline,
+  IoArrowUndoOutline,
 } from 'react-icons/io5';
 
 const MessageContainer = () => {
@@ -28,11 +32,81 @@ const MessageContainer = () => {
     isSending,
     sendMessage,
     closeMobileChat,
+    typingUsers,
+    sendTyping,
+    sendStopTyping,
+    replyingTo,
+    cancelReply,
+    editingMessage,
+    cancelEdit,
+    editMessage,
   } = useChat();
 
   const [inputText, setInputText] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [chatSearchQuery, setChatSearchQuery] = useState('');
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+
   const messagesContainerRef = useRef(null);
+  const searchInputRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
+
+  const isRecipientTyping = Boolean(selectedUser?._id && typingUsers?.[String(selectedUser._id)]);
+
+  // Matching messages for in-chat search
+  const searchMatches = chatSearchQuery.trim()
+    ? messages.filter(
+        (m) =>
+          !m.isDeleted &&
+          (m.content || m.message || '')
+            .toLowerCase()
+            .includes(chatSearchQuery.toLowerCase().trim())
+      )
+    : [];
+
+  // When editingMessage changes, update inputText
+  useEffect(() => {
+    if (editingMessage) {
+      setInputText(editingMessage.content || '');
+    }
+  }, [editingMessage]);
+
+  // Focus search input when toggled
+  useEffect(() => {
+    if (showSearch) {
+      setTimeout(() => searchInputRef.current?.focus(), 50);
+    } else {
+      setChatSearchQuery('');
+      setCurrentMatchIndex(0);
+    }
+  }, [showSearch]);
+
+  const scrollToMatch = (index) => {
+    if (searchMatches.length === 0 || index < 0 || index >= searchMatches.length) return;
+    const matchMsg = searchMatches[index];
+    const el = document.getElementById(`message-${matchMsg._id}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('ring-2', 'ring-indigo-400');
+      setTimeout(() => el.classList.remove('ring-2', 'ring-indigo-400'), 1800);
+    }
+  };
+
+  const handleNextMatch = () => {
+    if (searchMatches.length === 0) return;
+    const nextIdx = (currentMatchIndex + 1) % searchMatches.length;
+    setCurrentMatchIndex(nextIdx);
+    scrollToMatch(nextIdx);
+  };
+
+  const handlePrevMatch = () => {
+    if (searchMatches.length === 0) return;
+    const prevIdx =
+      (currentMatchIndex - 1 + searchMatches.length) % searchMatches.length;
+    setCurrentMatchIndex(prevIdx);
+    scrollToMatch(prevIdx);
+  };
 
   // Scroll ONLY the messages container itself to avoid scrolling the window
   const scrollToBottom = (behavior = 'smooth') => {
@@ -53,19 +127,61 @@ const MessageContainer = () => {
     return () => clearTimeout(timer);
   }, [selectedUser?._id]);
 
-  // Smooth scroll when new messages arrive
+  // Smooth scroll when new messages arrive or when recipient is typing
   useEffect(() => {
-    scrollToBottom('smooth');
-  }, [messages, loadingMessages]);
+    if (!showSearch) {
+      scrollToBottom('smooth');
+    }
+  }, [messages, loadingMessages, isRecipientTyping, showSearch]);
+
+  // Clean up typing state on switch/unmount
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      if (selectedUser?._id) {
+        sendStopTyping(selectedUser._id);
+      }
+    };
+  }, [selectedUser?._id, sendStopTyping]);
+
+  const handleInputChange = (e) => {
+    const val = e.target.value;
+    setInputText(val);
+
+    if (!selectedUser?._id) return;
+
+    if (val.trim()) {
+      sendTyping(selectedUser._id);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = setTimeout(() => {
+        sendStopTyping(selectedUser._id);
+      }, 1800);
+    } else {
+      sendStopTyping(selectedUser._id);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    }
+  };
 
   const handleSend = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
     if (!inputText.trim() || isSending) return;
 
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    if (selectedUser?._id) {
+      sendStopTyping(selectedUser._id);
+    }
+
     const text = inputText;
     setInputText('');
     setShowEmojiPicker(false);
-    await sendMessage(text);
+
+    if (editingMessage) {
+      await editMessage(editingMessage._id, text);
+      cancelEdit();
+    } else {
+      await sendMessage(text, replyingTo);
+      cancelReply();
+    }
   };
 
   const handleKeyDown = (e) => {
@@ -163,38 +279,54 @@ const MessageContainer = () => {
               {selectedUser.fullName}
             </h3>
             <div className="flex items-center gap-1.5 text-xs text-slate-400">
-              <span
-                className={`w-1.5 h-1.5 rounded-full ${
-                  isRecipientOnline ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'
-                }`}
-              />
-              <span
-                className={`font-medium ${
-                  isRecipientOnline ? 'text-emerald-400' : 'text-slate-500'
-                }`}
-              >
-                {isRecipientOnline ? 'Online now' : 'Offline'}
-              </span>
-              <span>•</span>
-              <span className="truncate">@{selectedUser.userName}</span>
+              {isRecipientTyping ? (
+                <div className="flex items-center gap-1.5 text-indigo-400 font-medium">
+                  <span className="flex gap-0.5 items-center">
+                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                  </span>
+                  <span className="animate-pulse">typing...</span>
+                </div>
+              ) : (
+                <>
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      isRecipientOnline ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'
+                    }`}
+                  />
+                  <span
+                    className={`font-medium ${
+                      isRecipientOnline ? 'text-emerald-400' : 'text-slate-500'
+                    }`}
+                  >
+                    {isRecipientOnline ? 'Online now' : 'Offline'}
+                  </span>
+                  <span>•</span>
+                  <span className="truncate">@{selectedUser.userName}</span>
+                </>
+              )}
             </div>
           </div>
         </div>
 
         {/* Action Header Icons */}
         <div className="flex items-center gap-1 sm:gap-2">
+          {/* In-Chat Message Search Toggle */}
           <button
-            title="Audio call"
-            className="p-2 rounded-xl text-slate-400 hover:text-indigo-400 hover:bg-white/[0.05] transition-all cursor-pointer"
+            onClick={() => {
+              setShowSearch((prev) => !prev);
+            }}
+            title="Search in conversation"
+            className={`p-2 rounded-xl transition-all cursor-pointer ${
+              showSearch
+                ? 'bg-indigo-600/30 text-indigo-300 border border-indigo-500/40'
+                : 'text-slate-400 hover:text-white hover:bg-white/[0.05]'
+            }`}
           >
-            <IoCallOutline className="w-4 h-4 sm:w-5 sm:h-5" />
+            <IoSearchOutline className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
-          <button
-            title="Video call"
-            className="p-2 rounded-xl text-slate-400 hover:text-purple-400 hover:bg-white/[0.05] transition-all cursor-pointer"
-          >
-            <IoVideocamOutline className="w-4 h-4 sm:w-5 sm:h-5" />
-          </button>
+
           <button
             title="More options"
             className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/[0.05] transition-all cursor-pointer"
@@ -203,6 +335,69 @@ const MessageContainer = () => {
           </button>
         </div>
       </div>
+
+      {/* In-Chat Search Bar Overlay */}
+      {showSearch && (
+        <div className="flex-shrink-0 px-4 py-2 bg-[#0d1222]/95 border-b border-indigo-500/20 backdrop-blur-xl flex items-center justify-between gap-2 z-10 animate-in slide-in-from-top-2 duration-150">
+          <div className="flex items-center gap-2 flex-1 min-w-0 bg-white/[0.04] border border-white/[0.08] focus-within:border-indigo-500/60 rounded-xl px-3 py-1.5 transition-all">
+            <IoSearchOutline className="w-4 h-4 text-slate-400 flex-shrink-0" />
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={chatSearchQuery}
+              onChange={(e) => {
+                setChatSearchQuery(e.target.value);
+                setCurrentMatchIndex(0);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  if (e.shiftKey) handlePrevMatch();
+                  else handleNextMatch();
+                } else if (e.key === 'Escape') {
+                  setShowSearch(false);
+                }
+              }}
+              placeholder="Search in conversation..."
+              className="w-full bg-transparent text-xs sm:text-sm text-slate-100 placeholder-slate-400 focus:outline-none"
+            />
+          </div>
+
+          <div className="flex items-center gap-1 flex-shrink-0 text-xs text-slate-400">
+            {chatSearchQuery.trim() && (
+              <span className="text-[11px] px-2 py-0.5 rounded bg-white/[0.06] text-slate-300 font-medium">
+                {searchMatches.length > 0
+                  ? `${currentMatchIndex + 1} of ${searchMatches.length}`
+                  : '0 results'}
+              </span>
+            )}
+
+            <button
+              onClick={handlePrevMatch}
+              disabled={searchMatches.length === 0}
+              title="Previous match (Shift+Enter)"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.08] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+            >
+              <IoChevronUp className="w-4 h-4" />
+            </button>
+            <button
+              onClick={handleNextMatch}
+              disabled={searchMatches.length === 0}
+              title="Next match (Enter)"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.08] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+            >
+              <IoChevronDown className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setShowSearch(false)}
+              title="Close search (Esc)"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-white/[0.08] cursor-pointer"
+            >
+              <IoCloseOutline className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 2. Messages Scroll Area (Direct container scrolling, flex-1 min-h-0) */}
       <div
@@ -264,6 +459,24 @@ const MessageContainer = () => {
             <Message key={msg._id || index} message={msg} />
           ))
         )}
+
+        {/* Live Typing Bubble in Chat Stream */}
+        {isRecipientTyping && (
+          <div className="flex items-end gap-2 my-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
+            <UserAvatar
+              user={selectedUser}
+              size="xs"
+              showStatus={false}
+              className="mb-1 hidden sm:block"
+            />
+            <div className="px-4 py-2.5 rounded-2xl rounded-tl-xs bg-white/[0.08] backdrop-blur-md border border-white/[0.09] shadow-sm flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+              <span className="w-2 h-2 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+              <span className="w-2 h-2 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+              <span className="text-xs text-indigo-300 font-medium ml-1.5">typing...</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Emoji Picker Popover */}
@@ -286,6 +499,63 @@ const MessageContainer = () => {
 
       {/* 3. Bottom Message Input Dock (flex-shrink-0) */}
       <div className="flex-shrink-0 p-3 sm:p-4 bg-[#0a0e1a]/95 border-t border-white/[0.07] backdrop-blur-xl">
+        {/* Active Quoted Reply Banner */}
+        {replyingTo && (
+          <div className="mb-2 px-3 py-2 rounded-xl bg-indigo-950/70 border border-indigo-500/30 backdrop-blur-md flex items-center justify-between gap-2 animate-in slide-in-from-bottom-2 duration-150">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="p-1 rounded-lg bg-indigo-600/30 text-indigo-400 flex-shrink-0">
+                <IoArrowUndoOutline className="w-3.5 h-3.5" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-xs font-semibold text-indigo-300 block">
+                  Replying to {replyingTo.senderName}
+                </span>
+                <p className="text-[11px] text-slate-300 truncate opacity-90">
+                  {replyingTo.content}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={cancelReply}
+              className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-white/[0.08] transition-all cursor-pointer flex-shrink-0"
+              title="Cancel reply"
+            >
+              <IoCloseOutline className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {/* Active Edit Message Banner */}
+        {editingMessage && (
+          <div className="mb-2 px-3 py-2 rounded-xl bg-sky-950/70 border border-sky-500/30 backdrop-blur-md flex items-center justify-between gap-2 animate-in slide-in-from-bottom-2 duration-150">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="p-1 rounded-lg bg-sky-600/30 text-sky-400 flex-shrink-0">
+                <IoPencilOutline className="w-3.5 h-3.5" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-xs font-semibold text-sky-300 block">
+                  Editing message
+                </span>
+                <p className="text-[11px] text-slate-300 truncate opacity-90">
+                  {editingMessage.content}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                cancelEdit();
+                setInputText('');
+              }}
+              className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-white/[0.08] transition-all cursor-pointer flex-shrink-0"
+              title="Cancel edit"
+            >
+              <IoCloseOutline className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
         <form
           onSubmit={handleSend}
           className="flex items-center gap-2 bg-white/[0.04] border border-white/[0.08] focus-within:border-indigo-500/50 focus-within:bg-white/[0.06] rounded-2xl p-1.5 transition-all shadow-inner"
@@ -317,9 +587,15 @@ const MessageContainer = () => {
           <input
             type="text"
             value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
+            onChange={handleInputChange}
             onKeyDown={handleKeyDown}
-            placeholder={`Message ${selectedUser.fullName}...`}
+            placeholder={
+              editingMessage
+                ? 'Edit your message...'
+                : replyingTo
+                ? `Replying to ${replyingTo.senderName}...`
+                : `Message ${selectedUser.fullName}...`
+            }
             className="flex-1 bg-transparent px-2 py-1 text-sm text-slate-100 placeholder-slate-400 focus:outline-none"
           />
 

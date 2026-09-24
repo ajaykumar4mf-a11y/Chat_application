@@ -11,6 +11,8 @@ import {
   IoRefreshOutline,
   IoPersonOutline,
   IoSparkles,
+  IoCheckmarkDone,
+  IoCheckmark,
 } from 'react-icons/io5';
 
 const Sidebar = () => {
@@ -25,18 +27,59 @@ const Sidebar = () => {
     setSearchQuery,
     fetchUsers,
     unreadCounts,
+    typingUsers,
   } = useChat();
 
   const [activeTab, setActiveTab] = useState('all');
 
   const totalUnread = Object.values(unreadCounts || {}).reduce((acc, count) => acc + count, 0);
 
-  const displayedUsers = filteredUsers.filter((u) => {
-    if (activeTab === 'unread') {
-      return (unreadCounts?.[u._id] || 0) > 0;
+  const formatLastMessageTime = (dateStr) => {
+    if (!dateStr) return '';
+    try {
+      const date = new Date(dateStr);
+      const now = new Date();
+      const isToday =
+        date.getDate() === now.getDate() &&
+        date.getMonth() === now.getMonth() &&
+        date.getFullYear() === now.getFullYear();
+
+      if (isToday) {
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      }
+
+      const yesterday = new Date();
+      yesterday.setDate(now.getDate() - 1);
+      const isYesterday =
+        date.getDate() === yesterday.getDate() &&
+        date.getMonth() === yesterday.getMonth() &&
+        date.getFullYear() === yesterday.getFullYear();
+
+      if (isYesterday) {
+        return 'Yesterday';
+      }
+
+      return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    } catch {
+      return '';
     }
-    return true;
-  });
+  };
+
+  const displayedUsers = filteredUsers
+    .filter((u) => {
+      if (activeTab === 'unread') {
+        return (unreadCounts?.[u._id] || 0) > 0;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      const timeA = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : 0;
+      const timeB = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : 0;
+      if (timeA && timeB) return timeB - timeA;
+      if (timeA) return -1;
+      if (timeB) return 1;
+      return (a.fullName || '').localeCompare(b.fullName || '');
+    });
 
   return (
     <div className="flex flex-col h-full w-full min-h-0 bg-[#090d16]/95 backdrop-blur-xl select-none">
@@ -194,6 +237,13 @@ const Sidebar = () => {
             const isSelected = selectedUser?._id === user._id;
             const isOnline = onlineUsers.includes(String(user._id));
             const unreadCount = unreadCounts?.[user._id] || 0;
+            const isTyping = Boolean(typingUsers?.[String(user._id)]);
+
+            const authUserId = authUser?._id || authUser?.id;
+            const lastMsgSenderId = user.lastMessage?.senderId?._id || user.lastMessage?.senderId;
+            const isLastMessageByMe = Boolean(
+              authUserId && lastMsgSenderId && String(lastMsgSenderId) === String(authUserId)
+            );
 
             return (
               <button
@@ -218,30 +268,74 @@ const Sidebar = () => {
                     >
                       {user.fullName}
                     </h3>
-                    <span
-                      className={`text-[10px] font-medium ${
-                        isOnline ? 'text-emerald-400' : 'text-slate-500'
-                      }`}
-                    >
-                      {isOnline ? 'Online' : 'Offline'}
-                    </span>
+                    {user.lastMessage?.createdAt ? (
+                      <span className="text-[11px] text-slate-400 font-normal flex-shrink-0 ml-1">
+                        {formatLastMessageTime(user.lastMessage.createdAt)}
+                      </span>
+                    ) : (
+                      <span
+                        className={`text-[10px] font-medium flex-shrink-0 ml-1 ${
+                          isOnline ? 'text-emerald-400' : 'text-slate-500'
+                        }`}
+                      >
+                        {isOnline ? 'Online' : 'Offline'}
+                      </span>
+                    )}
                   </div>
-                  <div className="flex items-center justify-between gap-1.5 text-xs text-slate-400">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="truncate">@{user.userName}</span>
-                      {user.gender && (
-                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-white/[0.06] text-slate-400 capitalize">
-                          {user.gender}
-                        </span>
-                      )}
-                    </div>
 
-                    {/* Unread Message Count Badge: 1, 2, ... */}
-                    {unreadCount > 0 && (
+                  <div className="flex items-center justify-between gap-1.5 text-xs text-slate-400 min-h-[18px]">
+                    {/* Left: Typing indicator OR Last Message snippet OR Username */}
+                    {isTyping ? (
+                      <div className="flex items-center gap-1.5 text-indigo-400 font-medium text-xs min-w-0">
+                        <span className="flex gap-0.5 items-center">
+                          <span className="w-1 h-1 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                          <span className="w-1 h-1 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                          <span className="w-1 h-1 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                        </span>
+                        <span className="animate-pulse">typing...</span>
+                      </div>
+                    ) : user.lastMessage ? (
+                      <div className="flex items-center gap-1 min-w-0 flex-1 mr-1">
+                        {isLastMessageByMe && (
+                          <span className="flex-shrink-0 text-slate-400 text-xs">
+                            {user.lastMessage.seen ? (
+                              <IoCheckmarkDone className="w-3.5 h-3.5 text-sky-400 inline" title="Seen" />
+                            ) : user.lastMessage.delivered ? (
+                              <IoCheckmarkDone className="w-3.5 h-3.5 text-slate-400 inline" title="Delivered" />
+                            ) : (
+                              <IoCheckmark className="w-3.5 h-3.5 text-slate-400 inline" title="Sent" />
+                            )}
+                          </span>
+                        )}
+                        <p
+                          className={`truncate text-xs ${
+                            unreadCount > 0
+                              ? 'font-semibold text-slate-100'
+                              : 'text-slate-400'
+                          }`}
+                        >
+                          {isLastMessageByMe ? `You: ${user.lastMessage.content}` : user.lastMessage.content}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5 min-w-0 text-xs text-slate-400">
+                        <span className="truncate">@{user.userName}</span>
+                        {user.gender && (
+                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-white/[0.06] text-slate-400 capitalize">
+                            {user.gender}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Right: Unread Badge or subtle presence dot */}
+                    {unreadCount > 0 ? (
                       <span className="flex-shrink-0 min-w-5 h-5 px-1.5 rounded-full bg-gradient-to-r from-indigo-500 via-indigo-600 to-purple-600 text-white text-[11px] font-bold flex items-center justify-center shadow-lg shadow-indigo-500/40 ring-1 ring-white/20 animate-in zoom-in-75 duration-150">
                         {unreadCount > 99 ? '99+' : unreadCount}
                       </span>
-                    )}
+                    ) : isOnline && !user.lastMessage ? (
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" />
+                    ) : null}
                   </div>
                 </div>
               </button>
