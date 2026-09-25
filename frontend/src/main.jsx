@@ -5,7 +5,9 @@ import axios from 'axios'
 import './index.css'
 import App from './App.jsx'
 
-axios.defaults.withCredentials = true
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://chat-application-backend-eafa.onrender.com';
+axios.defaults.baseURL = BACKEND_URL;
+axios.defaults.withCredentials = true;
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

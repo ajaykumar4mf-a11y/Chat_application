@@ -12,12 +12,14 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',
+        target: 'https://chat-application-backend-eafa.onrender.com',
         changeOrigin: true,
+        secure: false,
       },
       '/socket.io': {
-        target: 'http://localhost:8080',
+        target: 'https://chat-application-backend-eafa.onrender.com',
         ws: true,
+        changeOrigin: true,
       },
     },
   },
