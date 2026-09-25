@@ -38,29 +38,59 @@ const Signup = ({ onSwitchToLogin }) => {
   const passwordsMatch = formData.confirmPassword && formData.password === formData.confirmPassword;
   const passwordsMismatch = formData.confirmPassword && formData.password !== formData.confirmPassword;
 
-  return (
-    <div className="relative min-h-screen w-full flex items-center justify-center bg-[#07090e] p-4 sm:p-6 overflow-hidden text-slate-100 selection:bg-indigo-500 selection:text-white">
-      
-      {/* Background SVG Grid Pattern */}
-      <div 
-        className="absolute inset-0 opacity-[0.03] pointer-events-none"
-        style={{
-          backgroundImage: `radial-gradient(rgba(255, 255, 255, 0.4) 1px, transparent 1px)`,
-          backgroundSize: '24px 24px'
-        }}
-      />
+  // Strong password requirements
+  const password = formData.password || '';
+  const passwordRules = [
+    { id: 'length', label: '8+ characters', met: password.length >= 8 },
+    { id: 'upper', label: 'Uppercase (A-Z)', met: /[A-Z]/.test(password) },
+    { id: 'lower', label: 'Lowercase (a-z)', met: /[a-z]/.test(password) },
+    { id: 'number', label: 'Number (0-9)', met: /[0-9]/.test(password) },
+    { id: 'special', label: 'Special symbol (!@#$...)', met: /[!@#$%^&*(),.?":{}|<>_\-+=\\/\[\]]/.test(password) },
+  ];
+  const passedRulesCount = passwordRules.filter((r) => r.met).length;
+  const isPasswordStrong = passedRulesCount === 5;
 
-      {/* Decorative Ambient Gradient Orbs */}
-      <div className="absolute -top-32 -left-32 w-96 h-96 bg-indigo-600/25 rounded-full blur-[120px] pointer-events-none animate-pulse duration-1000" />
-      <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-purple-600/25 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-cyan-600/10 rounded-full blur-[140px] pointer-events-none" />
+  let strengthLabel = '';
+  let strengthTextColor = 'text-slate-400';
+  if (password.length > 0) {
+    if (passedRulesCount <= 2) {
+      strengthLabel = 'Weak';
+      strengthTextColor = 'text-rose-400';
+    } else if (passedRulesCount <= 4) {
+      strengthLabel = 'Medium';
+      strengthTextColor = 'text-amber-400';
+    } else {
+      strengthLabel = 'Strong';
+      strengthTextColor = 'text-emerald-400';
+    }
+  }
+
+  return (
+    <div className="relative min-h-screen w-full flex items-center justify-center bg-[#07090e] p-4 sm:p-6 py-10 sm:py-14 overflow-x-hidden overflow-y-auto text-slate-100 selection:bg-indigo-500 selection:text-white">
+
+      {/* Background Decor pinned so it never causes unwanted overflow */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        {/* Background SVG Grid Pattern */}
+        <div
+          className="absolute inset-0 opacity-[0.03]"
+          style={{
+            backgroundImage: `radial-gradient(rgba(255, 255, 255, 0.4) 1px, transparent 1px)`,
+            backgroundSize: '24px 24px'
+          }}
+        />
+
+        {/* Decorative Ambient Gradient Orbs */}
+        <div className="absolute -top-32 -left-32 w-96 h-96 bg-indigo-600/25 rounded-full blur-[120px] animate-pulse duration-1000" />
+        <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-purple-600/25 rounded-full blur-[120px]" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-cyan-600/10 rounded-full blur-[140px]" />
+      </div>
 
       {/* Outer Gradient Border Wrapper */}
-      <div className="relative w-full max-w-md p-[1px] rounded-3xl bg-gradient-to-b from-white/20 via-white/[0.06] to-transparent shadow-2xl shadow-black/80">
-        
+      <div className="relative w-full max-w-md my-auto p-[1px] rounded-3xl bg-gradient-to-b from-white/20 via-white/[0.06] to-transparent shadow-2xl shadow-black/80">
+
         {/* Main Glassmorphic Card Container */}
         <div className="relative w-full bg-[#0c101b]/90 backdrop-blur-3xl rounded-[23px] p-6 sm:p-8">
-          
+
           {/* Header */}
           <div className="flex flex-col items-center text-center mb-6">
             <div className="relative group mb-3">
@@ -109,7 +139,7 @@ const Signup = ({ onSwitchToLogin }) => {
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-3.5">
-            
+
             {/* Full Name */}
             <div>
               <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1" htmlFor="fullName">
@@ -197,6 +227,66 @@ const Signup = ({ onSwitchToLogin }) => {
                   )}
                 </button>
               </div>
+
+              {/* Real-time Password Strength Meter & Requirement Checklist */}
+              {password.length > 0 && (
+                <div className="mt-2.5 p-3 rounded-xl bg-white/[0.03] border border-white/[0.08] space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-medium text-slate-400">
+                      Password Strength:
+                    </span>
+                    <span className={`text-[11px] font-bold tracking-wide uppercase ${strengthTextColor}`}>
+                      {strengthLabel}
+                    </span>
+                  </div>
+
+                  {/* 3-Segment Progress Bar */}
+                  <div className="grid grid-cols-3 gap-1.5 h-1.5">
+                    <div
+                      className={`h-full rounded-full transition-all duration-300 ${passedRulesCount >= 1
+                          ? passedRulesCount <= 2
+                            ? 'bg-rose-500'
+                            : passedRulesCount <= 4
+                              ? 'bg-amber-500'
+                              : 'bg-emerald-500'
+                          : 'bg-white/[0.08]'
+                        }`}
+                    />
+                    <div
+                      className={`h-full rounded-full transition-all duration-300 ${passedRulesCount >= 3
+                          ? passedRulesCount <= 4
+                            ? 'bg-amber-500'
+                            : 'bg-emerald-500'
+                          : 'bg-white/[0.08]'
+                        }`}
+                    />
+                    <div
+                      className={`h-full rounded-full transition-all duration-300 ${passedRulesCount === 5 ? 'bg-emerald-500' : 'bg-white/[0.08]'
+                        }`}
+                    />
+                  </div>
+
+                  {/* Dynamic Requirements Checklist */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
+                    {passwordRules.map((rule) => (
+                      <div
+                        key={rule.id}
+                        className={`flex items-center gap-1.5 text-[11px] transition-colors duration-200 ${rule.met ? 'text-emerald-400 font-medium' : 'text-slate-400'
+                          }`}
+                      >
+                        {rule.met ? (
+                          <svg className="w-3.5 h-3.5 text-emerald-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        ) : (
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-500 shrink-0 ml-1 mr-1" />
+                        )}
+                        <span>{rule.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Confirm Password */}
@@ -233,11 +323,10 @@ const Signup = ({ onSwitchToLogin }) => {
                   value={formData.confirmPassword}
                   onChange={handleChange}
                   placeholder="••••••••"
-                  className={`w-full pl-10 pr-10 py-2.5 bg-white/[0.04] border rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 transition duration-200 ${
-                    passwordsMismatch
+                  className={`w-full pl-10 pr-10 py-2.5 bg-white/[0.04] border rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 transition duration-200 ${passwordsMismatch
                       ? 'border-rose-500/60 focus:ring-rose-500/30'
                       : 'border-white/[0.09] focus:ring-indigo-500/50 focus:border-indigo-500/80'
-                  }`}
+                    }`}
                 />
                 <button
                   type="button"
@@ -269,11 +358,10 @@ const Signup = ({ onSwitchToLogin }) => {
               <button
                 type="button"
                 onClick={() => setIsGenderOpen(!isGenderOpen)}
-                className={`w-full flex items-center justify-between pl-3.5 pr-4 py-2.5 bg-white/[0.04] border rounded-xl text-sm text-left transition duration-200 cursor-pointer ${
-                  isGenderOpen
+                className={`w-full flex items-center justify-between pl-3.5 pr-4 py-2.5 bg-white/[0.04] border rounded-xl text-sm text-left transition duration-200 cursor-pointer ${isGenderOpen
                     ? 'border-indigo-500 ring-2 ring-indigo-500/40 bg-white/[0.07]'
                     : 'border-white/[0.09] hover:bg-white/[0.06] hover:border-white/20'
-                }`}
+                  }`}
               >
                 <div className="flex items-center gap-2.5">
                   <span className="p-1 rounded-lg bg-white/[0.06]">
@@ -281,12 +369,11 @@ const Signup = ({ onSwitchToLogin }) => {
                   </span>
                   <span className="font-medium text-white">{selectedGender.label}</span>
                 </div>
-                
+
                 {/* Chevron */}
                 <svg
-                  className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${
-                    isGenderOpen ? 'rotate-180 text-indigo-400' : ''
-                  }`}
+                  className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isGenderOpen ? 'rotate-180 text-indigo-400' : ''
+                    }`}
                   fill="none"
                   stroke="currentColor"
                   strokeWidth="2"
@@ -307,11 +394,10 @@ const Signup = ({ onSwitchToLogin }) => {
                           key={option.value}
                           type="button"
                           onClick={() => onGenderSelect(option.value)}
-                          className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition cursor-pointer ${
-                            isSelected
+                          className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition cursor-pointer ${isSelected
                               ? 'bg-indigo-600/30 text-white border border-indigo-500/50 shadow-sm shadow-indigo-500/20'
                               : 'text-slate-300 hover:bg-white/[0.06] hover:text-white border border-transparent'
-                          }`}
+                            }`}
                         >
                           <div className="flex items-center gap-2.5">
                             <span className="p-1 rounded-lg bg-white/[0.04]">
@@ -338,9 +424,8 @@ const Signup = ({ onSwitchToLogin }) => {
               <button
                 type="submit"
                 disabled={loading}
-                className={`w-full relative group overflow-hidden py-3 px-4 rounded-xl font-bold text-sm text-white bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-600 hover:from-indigo-400 hover:via-purple-400 hover:to-indigo-500 shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 active:scale-[0.99] transition-all duration-200 cursor-pointer ${
-                  loading ? 'opacity-70 cursor-not-allowed' : ''
-                }`}
+                className={`w-full relative group overflow-hidden py-3 px-4 rounded-xl font-bold text-sm text-white bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-600 hover:from-indigo-400 hover:via-purple-400 hover:to-indigo-500 shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 active:scale-[0.99] transition-all duration-200 cursor-pointer ${loading ? 'opacity-70 cursor-not-allowed' : ''
+                  }`}
               >
                 <span className="relative z-10 flex items-center justify-center gap-2">
                   {loading ? (

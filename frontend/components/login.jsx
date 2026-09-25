@@ -25,23 +25,26 @@ const Login = ({ onSwitchToSignup }) => {
   };
 
   return (
-    <div className="relative min-h-screen w-full flex items-center justify-center bg-[#07090e] p-4 sm:p-6 overflow-hidden text-slate-100 selection:bg-indigo-500 selection:text-white">
-      {/* Background SVG Grid Pattern */}
-      <div
-        className="absolute inset-0 opacity-[0.03] pointer-events-none"
-        style={{
-          backgroundImage: `radial-gradient(rgba(255, 255, 255, 0.4) 1px, transparent 1px)`,
-          backgroundSize: '24px 24px',
-        }}
-      />
+    <div className="relative min-h-screen w-full flex items-center justify-center bg-[#07090e] p-4 sm:p-6 py-10 sm:py-14 overflow-x-hidden overflow-y-auto text-slate-100 selection:bg-indigo-500 selection:text-white">
+      {/* Background Decor pinned so it never causes unwanted overflow */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        {/* Background SVG Grid Pattern */}
+        <div
+          className="absolute inset-0 opacity-[0.03]"
+          style={{
+            backgroundImage: `radial-gradient(rgba(255, 255, 255, 0.4) 1px, transparent 1px)`,
+            backgroundSize: '24px 24px',
+          }}
+        />
 
-      {/* Decorative Ambient Gradient Orbs */}
-      <div className="absolute -top-32 -left-32 w-96 h-96 bg-indigo-600/25 rounded-full blur-[120px] pointer-events-none animate-pulse duration-1000" />
-      <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-purple-600/25 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-cyan-600/10 rounded-full blur-[140px] pointer-events-none" />
+        {/* Decorative Ambient Gradient Orbs */}
+        <div className="absolute -top-32 -left-32 w-96 h-96 bg-indigo-600/25 rounded-full blur-[120px] animate-pulse duration-1000" />
+        <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-purple-600/25 rounded-full blur-[120px]" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-cyan-600/10 rounded-full blur-[140px]" />
+      </div>
 
       {/* Outer Gradient Border Wrapper */}
-      <div className="relative w-full max-w-md p-[1px] rounded-3xl bg-gradient-to-b from-white/20 via-white/[0.06] to-transparent shadow-2xl shadow-black/80">
+      <div className="relative w-full max-w-md my-auto p-[1px] rounded-3xl bg-gradient-to-b from-white/20 via-white/[0.06] to-transparent shadow-2xl shadow-black/80">
         {/* Main Glassmorphic Card Container */}
         <div className="relative w-full bg-[#0c101b]/90 backdrop-blur-3xl rounded-[23px] p-6 sm:p-8">
           {/* Header */}
