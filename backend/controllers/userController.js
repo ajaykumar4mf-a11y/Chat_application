@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import userModel from "../models/userModel.js";
+import messageModel from "../models/messageModel.js";
 import jwt from "jsonwebtoken";
 
 const register = async (req, res) => {
@@ -15,16 +16,30 @@ const register = async (req, res) => {
         if (password !== confirmPassword) {
             return res.status(400).json({ error: "Password does not match" });
         }
+
+        // Enforce strong password: >=8 chars, uppercase, lowercase, number, special char
+        const minLength = password.length >= 8;
+        const hasUpper = /[A-Z]/.test(password);
+        const hasLower = /[a-z]/.test(password);
+        const hasNumber = /[0-9]/.test(password);
+        const hasSpecial = /[!@#$%^&*(),.?":{}|<>_\-+=\\/\[\]]/.test(password);
+
+        if (!minLength || !hasUpper || !hasLower || !hasNumber || !hasSpecial) {
+            return res.status(400).json({
+                error: "Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character."
+            });
+        }
+
         const user = await userModel.findOne({ userName: userIdentifier });
         if (user) {
             return res.status(400).json({ error: "User already exists" });
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
-        // generate picture using randomuser.me
-        const profilePhoto = normalizedGender === "male" 
-            ? `https://avatar.iran.liara.run/public/boy?username=${userIdentifier}` 
-            : `https://avatar.iran.liara.run/public/girl?username=${userIdentifier}`;
+        const isFemale = normalizedGender === "female";
+        const profilePhoto = isFemale
+            ? `https://api.dicebear.com/7.x/avataaars/svg?seed=${userIdentifier}&top=bob,bun,curly,curvy,longButNotTooLong,miaWallace,straight01,straight02,straightAndStrand&facialHairProbability=0`
+            : `https://api.dicebear.com/7.x/avataaars/svg?seed=${userIdentifier}&top=shortFlat,shortRound,shortWaved,theCaesar,theCaesarAndSidePart,shavedSides&facialHair=beardLight,beardMedium,moustacheMagnum&facialHairProbability=60`;
 
         await userModel.create({
             fullName: name,
@@ -69,7 +84,7 @@ const login = async (req, res) => {
             maxAge: 1 * 24 * 60 * 60 * 1000,
             httpOnly: true,
             sameSite: "strict",
-            secure: process.env.NODE_ENV !== "development"
+            secure: process.env.NODE_ENV === "production"
         });
         return res.status(200).json({
             message: "Login successful",
@@ -99,14 +114,48 @@ const logout = async (req, res) => {
 const getOtherUsers = async (req, res) => {
     try {
         const loggedInUserId = req.user?._id || req.user;
-        const users = await userModel.find({ _id: { $ne: loggedInUserId  } }).select("-password");
+        const users = await userModel.find({ _id: { $ne: loggedInUserId } }).select("-password").lean();
         if (!users) {
             return res.status(404).json({ error: "No users found" });
         }
+
+        // Fetch unread count and last message for each contact relative to loggedInUserId
+        const usersWithDetails = await Promise.all(
+            users.map(async (user) => {
+                const unreadCount = await messageModel.countDocuments({
+                    senderId: user._id,
+                    receiverId: loggedInUserId,
+                    seen: { $ne: true }
+                });
+
+                const lastMessage = await messageModel.findOne({
+                    $or: [
+                        { senderId: loggedInUserId, receiverId: user._id },
+                        { senderId: user._id, receiverId: loggedInUserId }
+                    ]
+                }).sort({ createdAt: -1 }).lean();
+
+                return {
+                    ...user,
+                    unreadCount: unreadCount || 0,
+                    lastMessage: lastMessage ? {
+                        _id: lastMessage._id,
+                        content: lastMessage.isDeleted ? "This message was deleted" : lastMessage.content,
+                        senderId: lastMessage.senderId,
+                        receiverId: lastMessage.receiverId,
+                        seen: lastMessage.seen,
+                        delivered: lastMessage.delivered || lastMessage.seen || false,
+                        isDeleted: Boolean(lastMessage.isDeleted),
+                        createdAt: lastMessage.createdAt
+                    } : null
+                };
+            })
+        );
+
         return res.status(200).json({
             message: "Other users fetched successfully",
             success: true,
-            users
+            users: usersWithDetails
         });
     } catch (error) {
         console.log("Get other users error:", error);
