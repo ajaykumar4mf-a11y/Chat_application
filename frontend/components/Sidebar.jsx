@@ -3,6 +3,7 @@ import { useAuth } from '../src/context/AuthContext';
 import { useChat } from '../src/context/ChatContext';
 import { useSocket } from '../src/context/SocketContext';
 import UserAvatar from './UserAvatar';
+import ProfileModal from './ProfileModal';
 import {
   IoSearchOutline,
   IoCloseCircle,
@@ -13,6 +14,8 @@ import {
   IoSparkles,
   IoCheckmarkDone,
   IoCheckmark,
+  IoCameraOutline,
+  IoSettingsOutline,
 } from 'react-icons/io5';
 
 const Sidebar = () => {
@@ -31,6 +34,7 @@ const Sidebar = () => {
   } = useChat();
 
   const [activeTab, setActiveTab] = useState('all');
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   const totalUnread = Object.values(unreadCounts || {}).reduce((acc, count) => acc + count, 0);
 
@@ -346,27 +350,55 @@ const Sidebar = () => {
 
       {/* 5. Bottom Current User Profile & Logout Bar (Fixed height, cannot shrink) */}
       <div className="flex-shrink-0 p-3 sm:p-3.5 bg-white/[0.02] border-t border-white/[0.07] flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <UserAvatar user={authUser} size="md" isOnline={true} />
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-white truncate leading-tight">
+        <div
+          onClick={() => setIsProfileModalOpen(true)}
+          className="flex items-center gap-2.5 min-w-0 cursor-pointer p-1.5 -m-1.5 rounded-xl hover:bg-white/[0.05] transition-all group flex-1"
+          title="Edit profile"
+        >
+          <div className="relative">
+            <UserAvatar user={authUser} size="md" isOnline={true} />
+            <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white">
+              <IoCameraOutline className="w-3.5 h-3.5" />
+            </div>
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-white truncate leading-tight group-hover:text-indigo-300 transition-colors">
               {authUser?.fullName || 'My Account'}
             </p>
-            <p className="text-xs text-slate-400 truncate leading-tight">
-              @{authUser?.userName || 'user'}
+            <p className="text-xs text-slate-400 truncate leading-tight flex items-center gap-1">
+              <span>@{authUser?.userName || 'user'}</span>
+              <span className="text-[10px] text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                • Edit profile
+              </span>
             </p>
           </div>
         </div>
 
-        <button
-          onClick={logout}
-          disabled={authLoading}
-          title="Sign out"
-          className="flex-shrink-0 p-2.5 rounded-xl bg-white/[0.04] hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 border border-white/[0.06] hover:border-rose-500/30 transition-all duration-200 active:scale-95 cursor-pointer"
-        >
-          <IoLogOutOutline className="w-5 h-5" />
-        </button>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => setIsProfileModalOpen(true)}
+            title="Edit profile"
+            className="flex-shrink-0 p-2.5 rounded-xl bg-white/[0.04] hover:bg-indigo-500/20 text-slate-400 hover:text-indigo-300 border border-white/[0.06] hover:border-indigo-500/30 transition-all duration-200 active:scale-95 cursor-pointer"
+          >
+            <IoSettingsOutline className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={logout}
+            disabled={authLoading}
+            title="Sign out"
+            className="flex-shrink-0 p-2.5 rounded-xl bg-white/[0.04] hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 border border-white/[0.06] hover:border-rose-500/30 transition-all duration-200 active:scale-95 cursor-pointer"
+          >
+            <IoLogOutOutline className="w-5 h-5" />
+          </button>
+        </div>
       </div>
+
+      {/* Profile & Avatar Customization Modal */}
+      <ProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+      />
     </div>
   );
 };

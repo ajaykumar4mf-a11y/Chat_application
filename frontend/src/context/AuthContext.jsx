@@ -1,6 +1,7 @@
 import { createContext, useContext, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 // Create the context
 export const AuthContext = createContext(null);
@@ -120,39 +121,32 @@ export const AuthProvider = ({ children }) => {
     }
 
     try {
-      const response = await fetch('/api/user/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          fullName: data.fullName.trim(),
-          userName: data.userName.trim(),
-          password: data.password,
-          confirmPassword: data.confirmPassword,
-          gender: data.gender,
-        }),
+      const { data } = await axios.post('/api/user/register', {
+        fullName: data.fullName.trim(),
+        userName: data.userName.trim(),
+        password: data.password,
+        confirmPassword: data.confirmPassword,
+        gender: data.gender,
       });
 
-      const resData = await response.json();
-
-      if (!response.ok) {
-        const errorMsg = resData.error || resData.message || 'Signup failed';
-        setError(errorMsg);
-        toast.error(errorMsg);
+      if (data.success) {
+        setSuccess(data.message || 'Account created successfully!');
+        toast.success(data.message || 'Account created successfully!');
+        navigate('/login');
         setLoading(false);
-        return { success: false, error: errorMsg };
+        return { success: true, data };
+      } else {
+        setError(data.message || 'Signup failed');
+        toast.error(data.message || 'Signup failed');
+        setLoading(false);
+        return { success: false, error: data.message };
       }
-
-      const successMsg = resData.message || 'Account created successfully!';
-      setSuccess(successMsg);
-      toast.success(successMsg);
-      navigate('/login');
-      setLoading(false);
-      return { success: true, data: resData };
     } catch (err) {
-      const errorMsg = err.message || 'Network error. Please try again.';
+      const errorMsg =
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        err.message ||
+        'Signup failed';
       setError(errorMsg);
       toast.error(errorMsg);
       setLoading(false);
@@ -174,45 +168,37 @@ export const AuthProvider = ({ children }) => {
     }
 
     try {
-      const response = await fetch('/api/user/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          userName: userName.trim(),
-          password,
-        }),
+      const { data } = await axios.post('/api/user/login', {
+        userName: userName.trim(),
+        password,
       });
 
-      const resData = await response.json();
-
-      if (!response.ok) {
-        const errorMsg = resData.error || resData.message || 'Login failed';
-        setError(errorMsg);
-        toast.error(errorMsg);
-        setLoading(false);
-        return { success: false, error: errorMsg };
-      }
-
-      if (resData.user) {
-        setAuthUser(resData.user);
-        try {
-          localStorage.setItem('chat-user', JSON.stringify(resData.user));
-        } catch (storageErr) {
-          console.error('Storage error:', storageErr);
+      if (data.success) {
+        if (data.user) {
+          setAuthUser(data.user);
+          try {
+            localStorage.setItem('chat-user', JSON.stringify(data.user));
+          } catch (storageErr) {
+            console.error('Storage error:', storageErr);
+          }
         }
+        setSuccess(data.message || 'Login successful!');
+        toast.success(data.message || 'Login successful!');
+        navigate('/');
+        setLoading(false);
+        return { success: true, data };
+      } else {
+        setError(data.message || 'Login failed');
+        toast.error(data.message || 'Login failed');
+        setLoading(false);
+        return { success: false, error: data.message };
       }
-
-      const successMsg = resData.message || 'Login successful!';
-      setSuccess(successMsg);
-      toast.success(successMsg);
-      navigate('/');
-      setLoading(false);
-      return { success: true, data: resData };
     } catch (err) {
-      const errorMsg = err.message || 'Network error. Please try again.';
+      const errorMsg =
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        err.message ||
+        'Login failed';
       setError(errorMsg);
       toast.error(errorMsg);
       setLoading(false);
@@ -223,11 +209,7 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/user/logout', {
-        method: 'POST',
-        credentials: 'include',
-      });
-      const data = await res.json().catch(() => ({}));
+      const { data } = await axios.post('/api/user/logout');
       setAuthUser(null);
       localStorage.removeItem('chat-user');
       navigate('/login');
@@ -237,9 +219,47 @@ export const AuthProvider = ({ children }) => {
       setAuthUser(null);
       localStorage.removeItem('chat-user');
       navigate('/login');
-      toast.error('Logout failed');
+      toast.error(err.response?.data?.error || err.message || 'Logout failed');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const updateProfile = async ({ fullName, profilePhoto, gender }) => {
+    setLoading(true);
+    try {
+      const { data } = await axios.put('/api/user/profile', {
+        fullName,
+        profilePhoto,
+        gender,
+      });
+
+      if (data.success) {
+        if (data.user) {
+          setAuthUser(data.user);
+          try {
+            localStorage.setItem('chat-user', JSON.stringify(data.user));
+          } catch (storageErr) {
+            console.error('Storage error:', storageErr);
+          }
+        }
+        toast.success(data.message || 'Profile updated successfully!');
+        setLoading(false);
+        return { success: true, user: data.user };
+      } else {
+        toast.error(data.message || 'Failed to update profile');
+        setLoading(false);
+        return { success: false, error: data.message };
+      }
+    } catch (err) {
+      const errorMsg =
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        err.message ||
+        'Failed to update profile';
+      toast.error(errorMsg);
+      setLoading(false);
+      return { success: false, error: errorMsg };
     }
   };
 
@@ -268,6 +288,7 @@ export const AuthProvider = ({ children }) => {
     signup,
     login,
     logout,
+    updateProfile,
     resetForm,
   };
 

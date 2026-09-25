@@ -2,6 +2,8 @@ import bcrypt from "bcryptjs";
 import userModel from "../models/userModel.js";
 import messageModel from "../models/messageModel.js";
 import jwt from "jsonwebtoken";
+import { io } from "../socket/socket.js";
+import cloudinary from "../config/cloudinary.js";
 
 const register = async (req, res) => {
     try {
@@ -164,4 +166,61 @@ const getOtherUsers = async (req, res) => {
 }
 
 
-export { register, login, logout, getOtherUsers };
+const updateProfile = async (req, res) => {
+    try {
+        const loggedInUserId = req.user?._id || req.user;
+        const { fullName, profilePhoto, gender } = req.body;
+
+        if (!loggedInUserId) {
+            return res.status(401).json({ error: "Unauthorized" });
+        }
+
+        const user = await userModel.findById(loggedInUserId);
+        if (!user) {
+            return res.status(404).json({ error: "User not found" });
+        }
+
+        if (fullName && fullName.trim()) {
+            user.fullName = fullName.trim();
+        }
+
+        if (gender) {
+            const normalizedGender = gender.toLowerCase();
+            if (["male", "female", "other"].includes(normalizedGender)) {
+                user.gender = normalizedGender;
+            }
+        }
+
+        if (profilePhoto) {
+            if (profilePhoto.startsWith("data:image/")) {
+                try {
+                    const uploadResponse = await cloudinary.uploader.upload(profilePhoto);
+                    user.profilePhoto = uploadResponse.secure_url;
+                } catch (cloudErr) {
+                    console.error("Cloudinary upload error:", cloudErr.message);
+                    user.profilePhoto = profilePhoto;
+                }
+            } else {
+                user.profilePhoto = profilePhoto;
+            }
+        }
+
+        await user.save();
+
+        const userResponse = await userModel.findById(loggedInUserId).select("-password");
+
+        // Broadcast profile change to all connected clients so real-time chat updates instantly
+        io.emit("userUpdated", userResponse);
+
+        return res.status(200).json({
+            message: "Profile updated successfully",
+            success: true,
+            user: userResponse
+        });
+    } catch (error) {
+        console.log("Update profile error:", error);
+        return res.status(500).json({ error: error.message || "Internal server error" });
+    }
+};
+
+export { register, login, logout, getOtherUsers, updateProfile };

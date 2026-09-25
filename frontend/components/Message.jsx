@@ -70,20 +70,20 @@ const Message = ({ message }) => {
   const renderDeliveryStatus = () => {
     if (isSeen) {
       return (
-        <span className="flex items-center text-sky-400 transition-colors" title="Seen">
+        <span className="flex items-center text-sky-300" title="Seen">
           <IoCheckmarkDone className="w-3.5 h-3.5" />
         </span>
       );
     }
     if (isDelivered) {
       return (
-        <span className="flex items-center text-slate-400" title="Delivered">
+        <span className="flex items-center text-white/70" title="Delivered">
           <IoCheckmarkDone className="w-3.5 h-3.5" />
         </span>
       );
     }
     return (
-      <span className="flex items-center text-slate-400" title="Sent">
+      <span className="flex items-center text-white/70" title="Sent">
         <IoCheckmark className="w-3.5 h-3.5" />
       </span>
     );
@@ -110,30 +110,30 @@ const Message = ({ message }) => {
   return (
     <div
       id={`message-${message._id}`}
-      className={`group relative flex items-end gap-2 w-full my-1.5 transition-all duration-200 ${
+      className={`group relative flex items-end gap-2 w-full my-1 transition-all duration-150 ${
         isMe ? 'justify-end' : 'justify-start'
       }`}
     >
-      {/* Receiver avatar on the left */}
+      {/* Recipient avatar on the left (only for incoming messages) */}
       {!isMe && (
         <UserAvatar
           user={selectedUser}
           size="xs"
           showStatus={false}
-          className="mb-1 hidden sm:block"
+          className="mb-1 flex-shrink-0 hidden sm:block"
         />
       )}
 
-      {/* Bubble + Timestamp Wrapper */}
+      {/* Bubble + Reactions Wrapper */}
       <div
-        className={`relative flex flex-col max-w-[85%] sm:max-w-[70%] ${
+        className={`relative flex flex-col max-w-[85%] sm:max-w-[68%] ${
           isMe ? 'items-end' : 'items-start'
         }`}
       >
-        {/* Floating Quick Actions Bar on Hover (above bubble) */}
+        {/* Floating Quick Action Toolbar on Hover */}
         {!isDeleted && (
           <div
-            className={`absolute -top-7 z-10 hidden group-hover:flex items-center gap-0.5 px-1.5 py-0.5 rounded-xl bg-[#0d1220]/95 backdrop-blur-xl border border-white/[0.12] shadow-xl animate-in fade-in zoom-in-95 duration-100 ${
+            className={`absolute -top-7 z-10 hidden group-hover:flex items-center gap-0.5 px-1 py-0.5 rounded-lg bg-[#0e1422]/95 backdrop-blur-md border border-white/10 shadow-lg animate-in fade-in duration-100 ${
               isMe ? 'right-0' : 'left-0'
             }`}
           >
@@ -142,19 +142,19 @@ const Message = ({ message }) => {
               <button
                 onClick={() => setShowReactionPicker((prev) => !prev)}
                 title="React"
-                className="p-1 rounded-lg text-slate-400 hover:text-amber-300 hover:bg-white/[0.08] transition-all cursor-pointer text-xs"
+                className="p-1 rounded-md text-slate-400 hover:text-amber-300 hover:bg-white/[0.08] transition cursor-pointer text-xs"
               >
                 <IoHappyOutline className="w-3.5 h-3.5" />
               </button>
 
               {/* Reaction Popup */}
               {showReactionPicker && (
-                <div className="absolute bottom-8 left-0 z-30 flex items-center gap-1 p-1 rounded-2xl bg-[#090d16]/98 backdrop-blur-2xl border border-white/[0.15] shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-150">
+                <div className="absolute bottom-8 left-0 z-30 flex items-center gap-1 p-1 rounded-xl bg-[#0e1422] border border-white/15 shadow-xl animate-in fade-in duration-100">
                   {quickReactions.map((emoji) => (
                     <button
                       key={emoji}
                       onClick={() => handleReaction(emoji)}
-                      className="w-7 h-7 rounded-xl hover:bg-white/[0.1] hover:scale-120 flex items-center justify-center text-sm transition-all cursor-pointer"
+                      className="w-7 h-7 rounded-lg hover:bg-white/[0.1] hover:scale-115 flex items-center justify-center text-sm transition cursor-pointer"
                     >
                       {emoji}
                     </button>
@@ -174,7 +174,7 @@ const Message = ({ message }) => {
                 })
               }
               title="Reply"
-              className="p-1 rounded-lg text-slate-400 hover:text-indigo-400 hover:bg-white/[0.08] transition-all cursor-pointer text-xs"
+              className="p-1 rounded-md text-slate-400 hover:text-indigo-400 hover:bg-white/[0.08] transition cursor-pointer text-xs"
             >
               <IoArrowUndoOutline className="w-3.5 h-3.5" />
             </button>
@@ -182,8 +182,8 @@ const Message = ({ message }) => {
             {/* Copy Button */}
             <button
               onClick={handleCopy}
-              title="Copy"
-              className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.08] transition-all cursor-pointer text-xs"
+              title="Copy text"
+              className="p-1 rounded-md text-slate-400 hover:text-white hover:bg-white/[0.08] transition cursor-pointer text-xs"
             >
               {copied ? (
                 <IoCheckmark className="w-3.5 h-3.5 text-emerald-400" />
@@ -202,7 +202,7 @@ const Message = ({ message }) => {
                   })
                 }
                 title="Edit message"
-                className="p-1 rounded-lg text-slate-400 hover:text-sky-400 hover:bg-white/[0.08] transition-all cursor-pointer text-xs"
+                className="p-1 rounded-md text-slate-400 hover:text-sky-400 hover:bg-white/[0.08] transition cursor-pointer text-xs"
               >
                 <IoPencilOutline className="w-3.5 h-3.5" />
               </button>
@@ -212,8 +212,8 @@ const Message = ({ message }) => {
             {isMe && (
               <button
                 onClick={handleDelete}
-                title="Delete for everyone"
-                className="p-1 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-white/[0.08] transition-all cursor-pointer text-xs"
+                title="Delete message"
+                className="p-1 rounded-md text-slate-400 hover:text-rose-400 hover:bg-white/[0.08] transition cursor-pointer text-xs"
               >
                 <IoTrashOutline className="w-3.5 h-3.5" />
               </button>
@@ -221,17 +221,17 @@ const Message = ({ message }) => {
           </div>
         )}
 
-        {/* Actual Message Bubble */}
+        {/* Message Bubble Container */}
         <div
-          className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed break-words shadow-sm transition-all duration-200 select-text ${
+          className={`px-3.5 py-2 rounded-2xl text-sm leading-relaxed shadow-xs transition-colors select-text ${
             isDeleted
-              ? 'bg-white/[0.03] border border-white/[0.05] text-slate-400 italic rounded-2xl'
+              ? 'bg-white/[0.03] border border-white/[0.06] text-slate-400 italic rounded-2xl'
               : isMe
-              ? 'bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-600 text-white rounded-tr-xs shadow-indigo-600/20 border border-white/10'
-              : 'bg-white/[0.08] backdrop-blur-md border border-white/[0.08] text-slate-100 rounded-tl-xs hover:border-white/[0.14]'
+              ? 'bg-indigo-600 text-white rounded-br-xs'
+              : 'bg-[#181f2e] text-slate-100 border border-white/[0.07] rounded-bl-xs'
           }`}
         >
-          {/* Quoted Message Card (if message is a reply) */}
+          {/* Quoted Reply Card (if message is replying to another) */}
           {message.replyTo?.content && !isDeleted && (
             <div
               onClick={() => {
@@ -242,21 +242,38 @@ const Message = ({ message }) => {
                   setTimeout(() => target.classList.remove('ring-2', 'ring-indigo-400'), 1500);
                 }
               }}
-              className="mb-2 p-2 rounded-xl bg-black/25 border-l-3 border-indigo-400 text-xs cursor-pointer hover:bg-black/35 transition-all text-left"
+              className={`mb-1.5 p-2 rounded-lg text-xs cursor-pointer transition text-left border-l-2 ${
+                isMe
+                  ? 'bg-black/20 border-white/70 hover:bg-black/30'
+                  : 'bg-white/[0.04] border-indigo-400 hover:bg-white/[0.08]'
+              }`}
             >
-              <p className="font-semibold text-indigo-300 text-[11px] truncate">
+              <p className={`font-medium text-[11px] truncate ${isMe ? 'text-indigo-100' : 'text-indigo-300'}`}>
                 {message.replyTo.senderName || 'Message'}
               </p>
-              <p className="text-slate-300 text-[11px] truncate opacity-90">
+              <p className="text-slate-300 text-[11px] truncate opacity-90 mt-0.5">
                 {message.replyTo.content}
               </p>
             </div>
           )}
 
-          {/* Text Content */}
-          <p className="whitespace-pre-wrap">
-            {isDeleted ? '🚫 This message was deleted' : textContent}
-          </p>
+          {/* Text Content and Inline Timestamp */}
+          <div className="flex flex-wrap items-end justify-end gap-x-2 gap-y-0.5">
+            <span className="whitespace-pre-wrap break-words flex-1 min-w-[60px]">
+              {isDeleted ? 'This message was deleted' : textContent}
+            </span>
+
+            {/* Time & Delivery Status inside bubble */}
+            <span
+              className={`inline-flex items-center gap-1 text-[10px] select-none leading-none flex-shrink-0 ml-auto pt-1 ${
+                isMe ? 'text-indigo-100/75' : 'text-slate-400'
+              }`}
+            >
+              <span>{formatTime(message.createdAt)}</span>
+              {isEdited && !isDeleted && <span className="text-[9px] opacity-75">(edited)</span>}
+              {isMe && !isDeleted && renderDeliveryStatus()}
+            </span>
+          </div>
         </div>
 
         {/* Reaction Badges on bubble corner */}
@@ -270,43 +287,20 @@ const Message = ({ message }) => {
               <button
                 key={emoji}
                 onClick={() => reactToMessage(message._id, emoji)}
-                className={`px-2 py-0.5 rounded-full text-xs flex items-center gap-1 border transition-all cursor-pointer ${
+                className={`px-2 py-0.5 rounded-full text-xs flex items-center gap-1 border transition cursor-pointer ${
                   hasReacted
-                    ? 'bg-indigo-600/40 border-indigo-500/70 text-white shadow-sm shadow-indigo-500/20'
-                    : 'bg-white/[0.06] border-white/[0.08] text-slate-300 hover:bg-white/[0.1]'
+                    ? 'bg-indigo-600/30 border-indigo-500/50 text-indigo-200'
+                    : 'bg-white/[0.05] border-white/[0.08] text-slate-300 hover:bg-white/[0.1]'
                 }`}
-                title={hasReacted ? 'Remove reaction' : 'React with ' + emoji}
+                title={hasReacted ? 'Remove reaction' : `React with ${emoji}`}
               >
                 <span>{emoji}</span>
-                <span className="text-[10px] font-bold">{count}</span>
+                <span className="text-[10px] font-semibold">{count}</span>
               </button>
             ))}
           </div>
         )}
-
-        {/* Timestamp and Status info */}
-        <div
-          className={`flex items-center gap-1.5 mt-1 px-1 text-[10px] text-slate-400 ${
-            isMe ? 'justify-end' : 'justify-start'
-          }`}
-        >
-          <span>{formatTime(message.createdAt)}</span>
-          {isEdited && !isDeleted && (
-            <span className="text-[9px] text-slate-400 italic">(edited)</span>
-          )}
-          {isMe && !isDeleted && renderDeliveryStatus()}
-        </div>
       </div>
-
-      {/* Sender avatar on the right */}
-      {isMe && (
-        <UserAvatar
-          user={authUser}
-          size="xs"
-          showStatus={false}
-          className="mb-1 hidden sm:block"
-        />
-      )}
     </div>
   );
 };

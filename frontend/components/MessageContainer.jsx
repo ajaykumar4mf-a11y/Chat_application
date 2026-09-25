@@ -7,13 +7,9 @@ import Message from './Message';
 import {
   IoSend,
   IoArrowBack,
-  IoEllipsisVertical,
   IoLockClosedOutline,
   IoHappyOutline,
-  IoAttachOutline,
   IoChatbubbleEllipsesOutline,
-  IoSparklesOutline,
-  IoShieldCheckmarkOutline,
   IoSearchOutline,
   IoChevronUp,
   IoChevronDown,
@@ -21,6 +17,34 @@ import {
   IoPencilOutline,
   IoArrowUndoOutline,
 } from 'react-icons/io5';
+
+const quickEmojis = ['👍', '❤️', '🔥', '😂', '🎉', '😊', '🙌', '✨', '👏', '👀', '💯', '🚀'];
+
+const isSameDay = (d1, d2) => {
+  if (!d1 || !d2) return false;
+  const date1 = new Date(d1);
+  const date2 = new Date(d2);
+  return (
+    date1.getFullYear() === date2.getFullYear() &&
+    date1.getMonth() === date2.getMonth() &&
+    date1.getDate() === date2.getDate()
+  );
+};
+
+const formatDateDivider = (dateStr) => {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  const today = new Date();
+  if (isSameDay(date, today)) return 'Today';
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  if (isSameDay(date, yesterday)) return 'Yesterday';
+  return date.toLocaleDateString([], {
+    month: 'short',
+    day: 'numeric',
+    year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined,
+  });
+};
 
 const MessageContainer = () => {
   const { authUser } = useAuth();
@@ -50,9 +74,24 @@ const MessageContainer = () => {
 
   const messagesContainerRef = useRef(null);
   const searchInputRef = useRef(null);
+  const textareaRef = useRef(null);
+  const emojiPickerRef = useRef(null);
   const typingTimeoutRef = useRef(null);
 
   const isRecipientTyping = Boolean(selectedUser?._id && typingUsers?.[String(selectedUser._id)]);
+
+  // Close emoji picker on outside click
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target)) {
+        setShowEmojiPicker(false);
+      }
+    };
+    if (showEmojiPicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showEmojiPicker]);
 
   // Matching messages for in-chat search
   const searchMatches = chatSearchQuery.trim()
@@ -69,8 +108,24 @@ const MessageContainer = () => {
   useEffect(() => {
     if (editingMessage) {
       setInputText(editingMessage.content || '');
+      textareaRef.current?.focus();
     }
   }, [editingMessage]);
+
+  // Focus textarea when replying
+  useEffect(() => {
+    if (replyingTo) {
+      textareaRef.current?.focus();
+    }
+  }, [replyingTo]);
+
+  // Auto-resize textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + 'px';
+    }
+  }, [inputText]);
 
   // Focus search input when toggled
   useEffect(() => {
@@ -102,13 +157,11 @@ const MessageContainer = () => {
 
   const handlePrevMatch = () => {
     if (searchMatches.length === 0) return;
-    const prevIdx =
-      (currentMatchIndex - 1 + searchMatches.length) % searchMatches.length;
+    const prevIdx = (currentMatchIndex - 1 + searchMatches.length) % searchMatches.length;
     setCurrentMatchIndex(prevIdx);
     scrollToMatch(prevIdx);
   };
 
-  // Scroll ONLY the messages container itself to avoid scrolling the window
   const scrollToBottom = (behavior = 'smooth') => {
     if (messagesContainerRef.current) {
       messagesContainerRef.current.scrollTo({
@@ -120,7 +173,6 @@ const MessageContainer = () => {
 
   // Instant scroll on conversation switch
   useEffect(() => {
-    // Instant scroll on initial load of conversation
     const timer = setTimeout(() => {
       scrollToBottom('auto');
     }, 50);
@@ -193,114 +245,79 @@ const MessageContainer = () => {
 
   const handleQuickSend = (text) => {
     setInputText(text);
+    textareaRef.current?.focus();
   };
 
   const isRecipientOnline = onlineUsers.includes(String(selectedUser?._id));
-  const quickEmojis = ['👋', '❤️', '🔥', '👍', '😂', '🎉', '🚀', '✨'];
 
   // EMPTY STATE when no user is selected
   if (!selectedUser) {
     return (
-      <div className="flex flex-col items-center justify-center h-full w-full p-6 text-center select-none bg-[#090d16]/60">
-        <div className="max-w-md flex flex-col items-center">
-          {/* Animated Glowing Chat Orb */}
-          <div className="relative group mb-6">
-            <div className="absolute -inset-2 rounded-3xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-60 blur-xl group-hover:opacity-90 transition duration-500 animate-pulse" />
-            <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-indigo-700 flex items-center justify-center shadow-2xl shadow-indigo-500/50 border border-white/20">
-              <IoChatbubbleEllipsesOutline className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
-            </div>
+      <div className="flex flex-col items-center justify-center h-full w-full p-6 text-center select-none bg-[#090d16]">
+        <div className="max-w-sm flex flex-col items-center">
+          <div className="w-16 h-16 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-slate-400 mb-4 shadow-sm">
+            <IoChatbubbleEllipsesOutline className="w-8 h-8 text-indigo-400" />
           </div>
 
-          <h2 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-white tracking-tight mb-2">
-            Welcome, {authUser?.fullName || 'User'}! 👋
+          <h2 className="text-lg font-semibold text-white mb-1.5">
+            Your messages
           </h2>
 
-          <p className="text-xs sm:text-sm text-slate-400 mb-6 sm:mb-8 leading-relaxed">
-            Select a contact from the sidebar to begin instant, protected, and real-time messaging with your peers.
+          <p className="text-xs text-slate-400 leading-relaxed mb-6">
+            Select a contact from the sidebar to start a conversation.
           </p>
 
-          {/* Feature Highlights Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full mb-6">
-            <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex flex-col items-center text-center hover:border-indigo-500/30 transition-all">
-              <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mb-1.5">
-                <IoSparklesOutline className="w-4 h-4" />
-              </div>
-              <span className="text-xs font-semibold text-slate-200">Real-Time</span>
-              <span className="text-[11px] text-slate-400 mt-0.5">Instant delivery</span>
-            </div>
-
-            <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex flex-col items-center text-center hover:border-purple-500/30 transition-all">
-              <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center mb-1.5">
-                <IoShieldCheckmarkOutline className="w-4 h-4" />
-              </div>
-              <span className="text-xs font-semibold text-slate-200">Private</span>
-              <span className="text-[11px] text-slate-400 mt-0.5">Protected chats</span>
-            </div>
-
-            <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex flex-col items-center text-center hover:border-cyan-500/30 transition-all">
-              <div className="w-8 h-8 rounded-xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center mb-1.5">
-                <IoLockClosedOutline className="w-4 h-4" />
-              </div>
-              <span className="text-xs font-semibold text-slate-200">Encrypted</span>
-              <span className="text-[11px] text-slate-400 mt-0.5">Session security</span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 text-xs text-slate-400 bg-white/[0.03] px-3.5 py-1.5 rounded-full border border-white/[0.05]">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-            <span>Select any conversation on the left to start chatting</span>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.03] border border-white/[0.06] text-[11px] text-slate-400">
+            <IoLockClosedOutline className="w-3.5 h-3.5 text-indigo-400" />
+            <span>End-to-end encrypted chat</span>
           </div>
         </div>
       </div>
     );
   }
 
-  // ACTIVE CHAT STATE
+  // ACTIVE CONVERSATION
   return (
-    <div className="flex flex-col h-full w-full min-h-0 bg-[#080c15]/95 backdrop-blur-xl relative overflow-hidden">
-      {/* 1. Chat Top Header (Fixed height, flex-shrink-0) */}
-      <div className="flex-shrink-0 px-4 py-3 sm:px-5 sm:py-3.5 border-b border-white/[0.07] bg-white/[0.02] flex items-center justify-between z-10">
+    <div className="flex flex-col h-full w-full min-h-0 bg-[#080c15] relative overflow-hidden">
+      {/* 1. Chat Top Header */}
+      <div className="flex-shrink-0 px-4 py-3 sm:px-5 sm:py-3 border-b border-white/[0.08] bg-[#0c101b] flex items-center justify-between z-10">
         <div className="flex items-center gap-3 min-w-0">
           {/* Mobile Back Button */}
           <button
             onClick={closeMobileChat}
-            className="md:hidden p-2 -ml-1 text-slate-400 hover:text-white rounded-lg hover:bg-white/[0.05] transition-all cursor-pointer"
+            className="md:hidden p-1.5 -ml-1 text-slate-400 hover:text-white rounded-lg hover:bg-white/[0.05] transition cursor-pointer"
             title="Back to contacts"
           >
             <IoArrowBack className="w-5 h-5" />
           </button>
 
-          {/* Recipient Avatar with Online Badge */}
-          <UserAvatar user={selectedUser} size="lg" isOnline={isRecipientOnline} />
+          {/* Recipient Avatar */}
+          <UserAvatar user={selectedUser} size="md" isOnline={isRecipientOnline} />
 
           {/* Recipient Details */}
           <div className="min-w-0">
-            <h3 className="font-semibold text-white text-sm sm:text-base truncate">
+            <h3 className="font-semibold text-white text-sm truncate">
               {selectedUser.fullName}
             </h3>
             <div className="flex items-center gap-1.5 text-xs text-slate-400">
               {isRecipientTyping ? (
-                <div className="flex items-center gap-1.5 text-indigo-400 font-medium">
+                <div className="flex items-center gap-1 text-indigo-400 font-medium">
                   <span className="flex gap-0.5 items-center">
                     <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '0ms' }} />
                     <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '150ms' }} />
                     <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '300ms' }} />
                   </span>
-                  <span className="animate-pulse">typing...</span>
+                  <span>typing...</span>
                 </div>
               ) : (
                 <>
                   <span
                     className={`w-1.5 h-1.5 rounded-full ${
-                      isRecipientOnline ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'
+                      isRecipientOnline ? 'bg-emerald-400' : 'bg-slate-500'
                     }`}
                   />
-                  <span
-                    className={`font-medium ${
-                      isRecipientOnline ? 'text-emerald-400' : 'text-slate-500'
-                    }`}
-                  >
-                    {isRecipientOnline ? 'Online now' : 'Offline'}
+                  <span className={isRecipientOnline ? 'text-emerald-400' : 'text-slate-500'}>
+                    {isRecipientOnline ? 'Online' : 'Offline'}
                   </span>
                   <span>•</span>
                   <span className="truncate">@{selectedUser.userName}</span>
@@ -311,35 +328,26 @@ const MessageContainer = () => {
         </div>
 
         {/* Action Header Icons */}
-        <div className="flex items-center gap-1 sm:gap-2">
-          {/* In-Chat Message Search Toggle */}
+        <div className="flex items-center gap-1">
+          {/* Search Toggle */}
           <button
-            onClick={() => {
-              setShowSearch((prev) => !prev);
-            }}
+            onClick={() => setShowSearch((prev) => !prev)}
             title="Search in conversation"
-            className={`p-2 rounded-xl transition-all cursor-pointer ${
+            className={`p-2 rounded-lg transition cursor-pointer ${
               showSearch
-                ? 'bg-indigo-600/30 text-indigo-300 border border-indigo-500/40'
+                ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30'
                 : 'text-slate-400 hover:text-white hover:bg-white/[0.05]'
             }`}
           >
-            <IoSearchOutline className="w-4 h-4 sm:w-5 sm:h-5" />
-          </button>
-
-          <button
-            title="More options"
-            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/[0.05] transition-all cursor-pointer"
-          >
-            <IoEllipsisVertical className="w-4 h-4 sm:w-5 sm:h-5" />
+            <IoSearchOutline className="w-4 h-4" />
           </button>
         </div>
       </div>
 
       {/* In-Chat Search Bar Overlay */}
       {showSearch && (
-        <div className="flex-shrink-0 px-4 py-2 bg-[#0d1222]/95 border-b border-indigo-500/20 backdrop-blur-xl flex items-center justify-between gap-2 z-10 animate-in slide-in-from-top-2 duration-150">
-          <div className="flex items-center gap-2 flex-1 min-w-0 bg-white/[0.04] border border-white/[0.08] focus-within:border-indigo-500/60 rounded-xl px-3 py-1.5 transition-all">
+        <div className="flex-shrink-0 px-4 py-2 bg-[#0e1422] border-b border-white/[0.08] flex items-center justify-between gap-2 z-10 animate-in slide-in-from-top-2 duration-100">
+          <div className="flex items-center gap-2 flex-1 min-w-0 bg-white/[0.04] border border-white/[0.08] focus-within:border-indigo-500 rounded-lg px-3 py-1.5 transition">
             <IoSearchOutline className="w-4 h-4 text-slate-400 flex-shrink-0" />
             <input
               ref={searchInputRef}
@@ -376,7 +384,7 @@ const MessageContainer = () => {
               onClick={handlePrevMatch}
               disabled={searchMatches.length === 0}
               title="Previous match (Shift+Enter)"
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.08] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+              className="p-1 rounded text-slate-400 hover:text-white hover:bg-white/[0.08] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
             >
               <IoChevronUp className="w-4 h-4" />
             </button>
@@ -384,14 +392,14 @@ const MessageContainer = () => {
               onClick={handleNextMatch}
               disabled={searchMatches.length === 0}
               title="Next match (Enter)"
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.08] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+              className="p-1 rounded text-slate-400 hover:text-white hover:bg-white/[0.08] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
             >
               <IoChevronDown className="w-4 h-4" />
             </button>
             <button
               onClick={() => setShowSearch(false)}
               title="Close search (Esc)"
-              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-white/[0.08] cursor-pointer"
+              className="p-1 rounded text-slate-400 hover:text-white hover:bg-white/[0.08] cursor-pointer"
             >
               <IoCloseOutline className="w-4 h-4" />
             </button>
@@ -399,118 +407,128 @@ const MessageContainer = () => {
         </div>
       )}
 
-      {/* 2. Messages Scroll Area (Direct container scrolling, flex-1 min-h-0) */}
+      {/* 2. Messages Scroll Area */}
       <div
         ref={messagesContainerRef}
-        className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 space-y-4"
+        className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 space-y-1"
       >
-        {/* Security Notification Banner */}
-        <div className="flex justify-center mb-2">
+        {/* Subtle Security Badge */}
+        <div className="flex justify-center mb-3">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.03] border border-white/[0.06] text-[11px] text-slate-400">
             <IoLockClosedOutline className="w-3.5 h-3.5 text-indigo-400" />
-            <span>Messages are encrypted with JWT-protected session.</span>
+            <span>End-to-end encrypted chat</span>
           </div>
         </div>
 
         {loadingMessages ? (
-          /* Loading State */
-          <div className="flex flex-col items-center justify-center h-48 space-y-3">
-            <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-            <p className="text-xs text-slate-400">Loading conversation history...</p>
+          <div className="flex flex-col items-center justify-center h-48 space-y-2">
+            <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+            <p className="text-xs text-slate-400">Loading messages...</p>
           </div>
         ) : messages.length === 0 ? (
           /* Empty Chat Conversation State */
           <div className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="w-14 h-14 rounded-2xl bg-white/[0.03] border border-white/[0.08] flex items-center justify-center text-indigo-400 mb-3 shadow-lg shadow-indigo-500/10">
-              <IoChatbubbleEllipsesOutline className="w-7 h-7" />
+            <div className="w-12 h-12 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center text-indigo-400 mb-3">
+              <IoChatbubbleEllipsesOutline className="w-6 h-6" />
             </div>
-            <h4 className="text-base font-semibold text-slate-200">
+            <h4 className="text-sm font-semibold text-slate-200">
               No messages yet
             </h4>
             <p className="text-xs text-slate-400 mt-1 max-w-xs">
-              Say hello to {selectedUser.fullName} and get the conversation rolling!
+              Say hello to {selectedUser.fullName} to start chatting!
             </p>
 
             {/* Quick Greeting Chips */}
             <div className="mt-4 flex flex-wrap gap-2 justify-center max-w-sm">
               <button
                 onClick={() => handleQuickSend('Hey there! 👋')}
-                className="px-3 py-1.5 rounded-full text-xs bg-white/[0.04] hover:bg-indigo-600/20 border border-white/[0.08] hover:border-indigo-500/40 text-slate-300 hover:text-white transition-all cursor-pointer"
+                className="px-3 py-1 rounded-full text-xs bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-slate-300 hover:text-white transition cursor-pointer"
               >
                 Hey there! 👋
               </button>
               <button
                 onClick={() => handleQuickSend("How's it going? 😊")}
-                className="px-3 py-1.5 rounded-full text-xs bg-white/[0.04] hover:bg-indigo-600/20 border border-white/[0.08] hover:border-indigo-500/40 text-slate-300 hover:text-white transition-all cursor-pointer"
+                className="px-3 py-1 rounded-full text-xs bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-slate-300 hover:text-white transition cursor-pointer"
               >
                 How's it going? 😊
-              </button>
-              <button
-                onClick={() => handleQuickSend('Ready to chat! 🚀')}
-                className="px-3 py-1.5 rounded-full text-xs bg-white/[0.04] hover:bg-indigo-600/20 border border-white/[0.08] hover:border-indigo-500/40 text-slate-300 hover:text-white transition-all cursor-pointer"
-              >
-                Ready to chat! 🚀
               </button>
             </div>
           </div>
         ) : (
-          /* Render Messages via Message component */
-          messages.map((msg, index) => (
-            <Message key={msg._id || index} message={msg} />
-          ))
+          /* Messages list with Day Dividers */
+          messages.map((msg, index) => {
+            const prevMsg = messages[index - 1];
+            const showDateDivider = !prevMsg || !isSameDay(prevMsg.createdAt, msg.createdAt);
+
+            return (
+              <React.Fragment key={msg._id || index}>
+                {showDateDivider && (
+                  <div className="flex justify-center my-3 select-none">
+                    <span className="text-[11px] font-medium text-slate-400 bg-white/[0.04] px-3 py-0.5 rounded-full border border-white/[0.06]">
+                      {formatDateDivider(msg.createdAt)}
+                    </span>
+                  </div>
+                )}
+                <Message message={msg} />
+              </React.Fragment>
+            );
+          })
         )}
 
-        {/* Live Typing Bubble in Chat Stream */}
+        {/* Live Typing Indicator */}
         {isRecipientTyping && (
-          <div className="flex items-end gap-2 my-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <div className="flex items-end gap-2 my-2 animate-in fade-in duration-150">
             <UserAvatar
               user={selectedUser}
               size="xs"
               showStatus={false}
               className="mb-1 hidden sm:block"
             />
-            <div className="px-4 py-2.5 rounded-2xl rounded-tl-xs bg-white/[0.08] backdrop-blur-md border border-white/[0.09] shadow-sm flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '0ms' }} />
-              <span className="w-2 h-2 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '150ms' }} />
-              <span className="w-2 h-2 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '300ms' }} />
-              <span className="text-xs text-indigo-300 font-medium ml-1.5">typing...</span>
+            <div className="px-3.5 py-2 rounded-2xl rounded-bl-xs bg-[#181f2e] border border-white/[0.07] flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+              <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+              <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+              <span className="text-xs text-indigo-300 font-medium ml-1">typing...</span>
             </div>
           </div>
         )}
       </div>
 
-      {/* Emoji Picker Popover */}
-      {showEmojiPicker && (
-        <div className="absolute bottom-20 left-4 sm:left-6 z-20 p-2 rounded-2xl bg-[#0c101b]/95 backdrop-blur-2xl border border-white/[0.1] shadow-2xl flex items-center gap-1.5 animate-in fade-in slide-in-from-bottom-2 duration-150">
-          {quickEmojis.map((emoji) => (
-            <button
-              key={emoji}
-              onClick={() => {
-                setInputText((prev) => prev + emoji);
-                setShowEmojiPicker(false);
-              }}
-              className="w-8 h-8 rounded-xl hover:bg-white/[0.1] flex items-center justify-center text-lg hover:scale-115 transition-all cursor-pointer"
-            >
-              {emoji}
-            </button>
-          ))}
-        </div>
-      )}
+      {/* 3. Bottom Message Box Dock */}
+      <div className="flex-shrink-0 p-3 sm:p-4 bg-[#0a0e18] border-t border-white/[0.08] relative">
+        {/* Floating Emoji Picker */}
+        {showEmojiPicker && (
+          <div
+            ref={emojiPickerRef}
+            className="absolute bottom-full left-4 sm:left-6 mb-2 z-30 p-2 rounded-xl bg-[#0f1422] border border-white/[0.1] shadow-xl flex flex-wrap gap-1 max-w-[280px] animate-in fade-in duration-100"
+          >
+            {quickEmojis.map((emoji) => (
+              <button
+                key={emoji}
+                type="button"
+                onClick={() => {
+                  setInputText((prev) => prev + emoji);
+                  setShowEmojiPicker(false);
+                  textareaRef.current?.focus();
+                }}
+                className="w-8 h-8 rounded-lg hover:bg-white/[0.08] hover:scale-115 flex items-center justify-center text-lg transition cursor-pointer"
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+        )}
 
-      {/* 3. Bottom Message Input Dock (flex-shrink-0) */}
-      <div className="flex-shrink-0 p-3 sm:p-4 bg-[#0a0e1a]/95 border-t border-white/[0.07] backdrop-blur-xl">
         {/* Active Quoted Reply Banner */}
         {replyingTo && (
-          <div className="mb-2 px-3 py-2 rounded-xl bg-indigo-950/70 border border-indigo-500/30 backdrop-blur-md flex items-center justify-between gap-2 animate-in slide-in-from-bottom-2 duration-150">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="p-1 rounded-lg bg-indigo-600/30 text-indigo-400 flex-shrink-0">
-                <IoArrowUndoOutline className="w-3.5 h-3.5" />
-              </div>
-              <div className="min-w-0">
-                <span className="text-xs font-semibold text-indigo-300 block">
+          <div className="mb-2 px-3 py-1.5 rounded-r-xl bg-white/[0.03] border-l-2 border-indigo-500 border-y border-r border-white/[0.06] flex items-center justify-between gap-2 animate-in slide-in-from-bottom-1 duration-100">
+            <div className="flex items-center gap-2 min-w-0">
+              <IoArrowUndoOutline className="w-3.5 h-3.5 text-indigo-400 flex-shrink-0" />
+              <div className="min-w-0 text-xs">
+                <span className="font-medium text-indigo-300 block truncate">
                   Replying to {replyingTo.senderName}
                 </span>
-                <p className="text-[11px] text-slate-300 truncate opacity-90">
+                <p className="text-[11px] text-slate-400 truncate mt-0.5">
                   {replyingTo.content}
                 </p>
               </div>
@@ -518,7 +536,7 @@ const MessageContainer = () => {
             <button
               type="button"
               onClick={cancelReply}
-              className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-white/[0.08] transition-all cursor-pointer flex-shrink-0"
+              className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-white/[0.08] transition cursor-pointer flex-shrink-0"
               title="Cancel reply"
             >
               <IoCloseOutline className="w-4 h-4" />
@@ -528,16 +546,14 @@ const MessageContainer = () => {
 
         {/* Active Edit Message Banner */}
         {editingMessage && (
-          <div className="mb-2 px-3 py-2 rounded-xl bg-sky-950/70 border border-sky-500/30 backdrop-blur-md flex items-center justify-between gap-2 animate-in slide-in-from-bottom-2 duration-150">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="p-1 rounded-lg bg-sky-600/30 text-sky-400 flex-shrink-0">
-                <IoPencilOutline className="w-3.5 h-3.5" />
-              </div>
-              <div className="min-w-0">
-                <span className="text-xs font-semibold text-sky-300 block">
+          <div className="mb-2 px-3 py-1.5 rounded-r-xl bg-white/[0.03] border-l-2 border-sky-500 border-y border-r border-white/[0.06] flex items-center justify-between gap-2 animate-in slide-in-from-bottom-1 duration-100">
+            <div className="flex items-center gap-2 min-w-0">
+              <IoPencilOutline className="w-3.5 h-3.5 text-sky-400 flex-shrink-0" />
+              <div className="min-w-0 text-xs">
+                <span className="font-medium text-sky-300 block truncate">
                   Editing message
                 </span>
-                <p className="text-[11px] text-slate-300 truncate opacity-90">
+                <p className="text-[11px] text-slate-400 truncate mt-0.5">
                   {editingMessage.content}
                 </p>
               </div>
@@ -548,7 +564,7 @@ const MessageContainer = () => {
                 cancelEdit();
                 setInputText('');
               }}
-              className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-white/[0.08] transition-all cursor-pointer flex-shrink-0"
+              className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-white/[0.08] transition cursor-pointer flex-shrink-0"
               title="Cancel edit"
             >
               <IoCloseOutline className="w-4 h-4" />
@@ -556,60 +572,57 @@ const MessageContainer = () => {
           </div>
         )}
 
+        {/* Input Bar */}
         <form
           onSubmit={handleSend}
-          className="flex items-center gap-2 bg-white/[0.04] border border-white/[0.08] focus-within:border-indigo-500/50 focus-within:bg-white/[0.06] rounded-2xl p-1.5 transition-all shadow-inner"
+          className="flex items-end gap-2 bg-white/[0.04] border border-white/[0.08] focus-within:border-indigo-500/60 focus-within:ring-1 focus-within:ring-indigo-500/30 rounded-2xl p-1.5 transition"
         >
           {/* Emoji Toggle */}
           <button
             type="button"
             onClick={() => setShowEmojiPicker((prev) => !prev)}
-            className={`p-2 rounded-xl transition-all cursor-pointer ${
+            className={`p-2 rounded-xl transition cursor-pointer mb-0.5 ${
               showEmojiPicker
                 ? 'text-indigo-400 bg-white/[0.08]'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.05]'
             }`}
-            title="Add emoji"
+            title="Emoji"
           >
             <IoHappyOutline className="w-5 h-5" />
           </button>
 
-          {/* Attachment Toggle */}
-          <button
-            type="button"
-            className="p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-white/[0.05] transition-all hidden sm:flex cursor-pointer"
-            title="Attach file"
-          >
-            <IoAttachOutline className="w-5 h-5" />
-          </button>
-
-          {/* Text Input */}
-          <input
-            type="text"
+          {/* Multiline / Single-line Auto-Expanding Textarea */}
+          <textarea
+            ref={textareaRef}
+            rows={1}
             value={inputText}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             placeholder={
               editingMessage
-                ? 'Edit your message...'
+                ? 'Edit message...'
                 : replyingTo
-                ? `Replying to ${replyingTo.senderName}...`
+                ? `Reply to ${replyingTo.senderName}...`
                 : `Message ${selectedUser.fullName}...`
             }
-            className="flex-1 bg-transparent px-2 py-1 text-sm text-slate-100 placeholder-slate-400 focus:outline-none"
+            className="flex-1 bg-transparent px-1 py-1.5 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none resize-none leading-relaxed max-h-[120px] overflow-y-auto"
           />
 
           {/* Send Button */}
           <button
             type="submit"
             disabled={!inputText.trim() || isSending}
-            className="p-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-md shadow-indigo-600/30 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:from-indigo-600 disabled:hover:to-purple-600 active:scale-95 flex items-center justify-center flex-shrink-0 cursor-pointer"
-            title="Send Message (Enter)"
+            className={`p-2.5 rounded-xl transition flex items-center justify-center flex-shrink-0 cursor-pointer mb-0.5 ${
+              inputText.trim() && !isSending
+                ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm active:scale-95'
+                : 'text-slate-500 opacity-40 cursor-not-allowed'
+            }`}
+            title="Send (Enter)"
           >
             {isSending ? (
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             ) : (
-              <IoSend className="w-4 h-4 transform -rotate-12 translate-x-0.5" />
+              <IoSend className="w-4 h-4" />
             )}
           </button>
         </form>

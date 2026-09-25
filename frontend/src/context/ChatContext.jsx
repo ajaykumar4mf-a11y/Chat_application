@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
 import { useSocket } from './SocketContext';
+import axios from 'axios';
 
 export const ChatContext = createContext(null);
 
@@ -93,35 +94,28 @@ export const ChatProvider = ({ children }) => {
     if (!authUser) return;
     setLoadingUsers(true);
     try {
-      const res = await fetch('/api/user/', {
-        credentials: 'include',
+      const { data } = await axios.get('/api/user/');
+      const userList = Array.isArray(data) ? data : (data.users || []);
+      setUsers(userList);
+
+      // Sync initial unread counts from database
+      const dbUnread = {};
+      userList.forEach((u) => {
+        const uid = String(u._id);
+        if (u.unreadCount && u.unreadCount > 0) {
+          dbUnread[uid] = u.unreadCount;
+        }
       });
-      if (res.status === 401) {
+      setUnreadCounts((prev) => ({
+        ...dbUnread,
+        ...prev,
+      }));
+    } catch (err) {
+      if (err.response?.status === 401) {
         setAuthUser(null);
         localStorage.removeItem('chat-user');
         return;
       }
-      const data = await res.json();
-      if (res.ok) {
-        const userList = Array.isArray(data) ? data : (data.users || []);
-        setUsers(userList);
-
-        // Sync initial unread counts from database
-        const dbUnread = {};
-        userList.forEach((u) => {
-          const uid = String(u._id);
-          if (u.unreadCount && u.unreadCount > 0) {
-            dbUnread[uid] = u.unreadCount;
-          }
-        });
-        setUnreadCounts((prev) => ({
-          ...dbUnread,
-          ...prev,
-        }));
-      } else {
-        setUsers([]);
-      }
-    } catch (err) {
       console.error('Failed to fetch other users:', err);
       setUsers([]);
     } finally {
@@ -134,21 +128,14 @@ export const ChatProvider = ({ children }) => {
     if (!userId) return;
     setLoadingMessages(true);
     try {
-      const res = await fetch(`/api/message/${userId}`, {
-        credentials: 'include',
-      });
-      if (res.status === 401) {
+      const { data } = await axios.get(`/api/message/${userId}`);
+      setMessages(Array.isArray(data) ? data : []);
+    } catch (err) {
+      if (err.response?.status === 401) {
         setAuthUser(null);
         localStorage.removeItem('chat-user');
         return;
       }
-      if (res.ok) {
-        const data = await res.json();
-        setMessages(Array.isArray(data) ? data : []);
-      } else {
-        setMessages([]);
-      }
-    } catch (err) {
       console.error('Failed to fetch messages:', err);
       setMessages([]);
     } finally {
@@ -184,10 +171,7 @@ export const ChatProvider = ({ children }) => {
       setUsers((prev) =>
         prev.map((u) => (String(u._id) === uid ? { ...u, unreadCount: 0 } : u))
       );
-      fetch(`/api/message/seen/${uid}`, {
-        method: 'POST',
-        credentials: 'include',
-      }).catch(() => {});
+      axios.post(`/api/message/seen/${uid}`).catch(() => {});
     } else {
       setMessages([]);
     }
@@ -242,10 +226,7 @@ export const ChatProvider = ({ children }) => {
           return [...prev, { ...newMessage, delivered: true, seen: true }];
         });
         // Acknowledge seen to the server
-        fetch(`/api/message/seen/${selectedUser._id}`, {
-          method: 'POST',
-          credentials: 'include',
-        }).catch(() => {});
+        axios.post(`/api/message/seen/${selectedUser._id}`).catch(() => {});
       } else {
         // Increment unread message count for this sender (1, 2, 3...)
         setUnreadCounts((prev) => ({
@@ -393,6 +374,21 @@ export const ChatProvider = ({ children }) => {
       );
     };
 
+    const handleUserUpdated = (updatedUser) => {
+      if (!updatedUser?._id) return;
+      setUsers((prevUsers) =>
+        prevUsers.map((u) =>
+          String(u._id) === String(updatedUser._id) ? { ...u, ...updatedUser } : u
+        )
+      );
+      setSelectedUser((prevSelected) => {
+        if (prevSelected && String(prevSelected._id) === String(updatedUser._id)) {
+          return { ...prevSelected, ...updatedUser };
+        }
+        return prevSelected;
+      });
+    };
+
     socket.on('newMessage', handleNewMessage);
     socket.on('messagesDelivered', handleMessagesDelivered);
     socket.on('messagesSeen', handleMessagesSeen);
@@ -401,6 +397,7 @@ export const ChatProvider = ({ children }) => {
     socket.on('messageReaction', handleMessageReaction);
     socket.on('messageEdited', handleMessageEdited);
     socket.on('messageDeleted', handleMessageDeleted);
+    socket.on('userUpdated', handleUserUpdated);
 
     return () => {
       socket.off('newMessage', handleNewMessage);
@@ -411,6 +408,7 @@ export const ChatProvider = ({ children }) => {
       socket.off('messageReaction', handleMessageReaction);
       socket.off('messageEdited', handleMessageEdited);
       socket.off('messageDeleted', handleMessageDeleted);
+      socket.off('userUpdated', handleUserUpdated);
     };
   }, [socket, selectedUser]);
 
@@ -451,32 +449,23 @@ export const ChatProvider = ({ children }) => {
     const replyTarget = replyData || replyingTo;
 
     try {
-      const res = await fetch(`/api/message/send/${selectedUser._id}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          message: text,
-          replyTo: replyTarget
-            ? {
-                _id: replyTarget._id,
-                content: replyTarget.content || replyTarget.message,
-                senderName:
-                  replyTarget.senderName ||
-                  (String(replyTarget.senderId?._id || replyTarget.senderId) ===
-                  String(authUser?._id)
-                    ? 'You'
-                    : selectedUser.fullName),
-              }
-            : undefined,
-        }),
+      const { data } = await axios.post(`/api/message/send/${selectedUser._id}`, {
+        message: text,
+        replyTo: replyTarget
+          ? {
+              _id: replyTarget._id,
+              content: replyTarget.content || replyTarget.message,
+              senderName:
+                replyTarget.senderName ||
+                (String(replyTarget.senderId?._id || replyTarget.senderId) ===
+                String(authUser?._id)
+                  ? 'You'
+                  : selectedUser.fullName),
+            }
+          : undefined,
       });
 
-      const data = await res.json();
-
-      if (res.ok && data.newMessage) {
+      if (data?.newMessage) {
         sendStopTyping(selectedUser._id);
         setReplyingTo(null);
         setMessages((prev) => [...prev, data.newMessage]);
@@ -501,12 +490,12 @@ export const ChatProvider = ({ children }) => {
         setIsSending(false);
         return true;
       } else {
-        console.error('Failed to send message:', data.error);
+        console.error('Failed to send message:', data?.error);
         setIsSending(false);
         return false;
       }
     } catch (err) {
-      console.error('Error sending message:', err);
+      console.error('Error sending message:', err.response?.data?.error || err.message);
       setIsSending(false);
       return false;
     }
@@ -516,14 +505,8 @@ export const ChatProvider = ({ children }) => {
   const reactToMessage = async (messageId, emoji) => {
     if (!messageId || !emoji) return;
     try {
-      const res = await fetch(`/api/message/react/${messageId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ emoji }),
-      });
-      const data = await res.json();
-      if (res.ok && data.reactions) {
+      const { data } = await axios.put(`/api/message/react/${messageId}`, { emoji });
+      if (data?.reactions) {
         setMessages((prev) =>
           prev.map((msg) =>
             String(msg._id) === String(messageId)
@@ -533,7 +516,7 @@ export const ChatProvider = ({ children }) => {
         );
       }
     } catch (err) {
-      console.error('Failed to react to message:', err);
+      console.error('Failed to react to message:', err.response?.data?.error || err.message);
     }
   };
 
@@ -541,14 +524,10 @@ export const ChatProvider = ({ children }) => {
   const editMessage = async (messageId, newContent) => {
     if (!messageId || !newContent?.trim()) return false;
     try {
-      const res = await fetch(`/api/message/edit/${messageId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ content: newContent.trim() }),
+      const { data } = await axios.put(`/api/message/edit/${messageId}`, {
+        content: newContent.trim(),
       });
-      const data = await res.json();
-      if (res.ok && data.message) {
+      if (data?.message) {
         setEditingMessage(null);
         setMessages((prev) =>
           prev.map((msg) =>
@@ -575,7 +554,7 @@ export const ChatProvider = ({ children }) => {
       }
       return false;
     } catch (err) {
-      console.error('Failed to edit message:', err);
+      console.error('Failed to edit message:', err.response?.data?.error || err.message);
       return false;
     }
   };
@@ -584,12 +563,8 @@ export const ChatProvider = ({ children }) => {
   const deleteMessage = async (messageId) => {
     if (!messageId) return false;
     try {
-      const res = await fetch(`/api/message/delete/${messageId}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
-      const data = await res.json();
-      if (res.ok) {
+      const { data } = await axios.delete(`/api/message/delete/${messageId}`);
+      if (data?.success || data?.message) {
         setMessages((prev) =>
           prev.map((msg) =>
             String(msg._id) === String(messageId)
@@ -621,7 +596,7 @@ export const ChatProvider = ({ children }) => {
       }
       return false;
     } catch (err) {
-      console.error('Failed to delete message:', err);
+      console.error('Failed to delete message:', err.response?.data?.error || err.message);
       return false;
     }
   };

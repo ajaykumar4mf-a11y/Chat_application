@@ -47,25 +47,34 @@ const UserAvatar = ({
   const gradient = getGradient(fullName);
   const initials = getInitials(fullName);
 
-  // If the DB has the dead iran.liara.run service (which returns 502 Bad Gateway),
-  // automatically resolve to a high-speed, working character avatar from Dicebear
+  // By default show an avatar; if user updated their photo (custom base64/url), show that.
+  // If the DB has the dead iran.liara.run service, automatically resolve to Dicebear.
   const resolvePhotoUrl = () => {
-    if (!rawPhoto) return null;
-
     const isFemale =
       user?.gender === 'female' ||
-      rawPhoto.includes('/girl') ||
-      rawPhoto.includes('gender=female');
+      (typeof rawPhoto === 'string' && (rawPhoto.includes('/girl') || rawPhoto.includes('gender=female')));
 
     const seed = user?.userName || user?.fullName || 'user';
 
-    if (rawPhoto.includes('avatar.iran.liara.run') || rawPhoto.includes('api.dicebear.com')) {
+    // 1. By default, if no profilePhoto is set, return default avatar
+    if (!rawPhoto || typeof rawPhoto !== 'string' || rawPhoto.trim() === '') {
       if (isFemale) {
         return `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(seed)}&top=bob,bun,curly,curvy,longButNotTooLong,miaWallace,straight01,straight02,straightAndStrand&facialHairProbability=0`;
       } else {
         return `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(seed)}&top=shortFlat,shortRound,shortWaved,theCaesar,theCaesarAndSidePart,shavedSides&facialHair=beardLight,beardMedium,moustacheMagnum&facialHairProbability=60`;
       }
     }
+
+    // 2. Migrate legacy dead iran.liara.run service to working dicebear avatar
+    if (rawPhoto.includes('avatar.iran.liara.run')) {
+      if (isFemale) {
+        return `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(seed)}&top=bob,bun,curly,curvy,longButNotTooLong,miaWallace,straight01,straight02,straightAndStrand&facialHairProbability=0`;
+      } else {
+        return `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(seed)}&top=shortFlat,shortRound,shortWaved,theCaesar,theCaesarAndSidePart,shavedSides&facialHair=beardLight,beardMedium,moustacheMagnum&facialHairProbability=60`;
+      }
+    }
+
+    // 3. User's updated custom photo (base64 data URI, image URL, or custom avatar)
     return rawPhoto;
   };
 
@@ -78,6 +87,7 @@ const UserAvatar = ({
     md: 'w-10 h-10 text-xs sm:text-sm',
     lg: 'w-11 h-11 text-sm sm:text-base',
     xl: 'w-14 h-14 text-lg',
+    '2xl': 'w-20 h-20 text-2xl',
   };
 
   const statusSizeClasses = {
@@ -86,6 +96,7 @@ const UserAvatar = ({
     md: 'w-2.5 h-2.5 sm:w-3 sm:h-3',
     lg: 'w-3 h-3',
     xl: 'w-3.5 h-3.5',
+    '2xl': 'w-4 h-4',
   };
 
   const currentSizeClass = sizeClasses[size] || sizeClasses.md;
